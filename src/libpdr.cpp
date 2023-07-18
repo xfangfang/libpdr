@@ -1,4 +1,5 @@
 
+#include <stdexcept>
 #include "libpdr.h"
 
 namespace pdr {
