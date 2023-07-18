@@ -1,6 +1,0 @@
-[submodule "library/tinyxml2"]
-	path = library/tinyxml2
-	url = https://github.com/leethomason/tinyxml2.git
-[submodule "library/mongoose"]
-	path = library/mongoose
-	url = https://github.com/cesanta/mongoose.git

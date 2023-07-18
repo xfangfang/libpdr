@@ -5,15 +5,25 @@ set(CMAKE_CXX_STANDARD 17)
 
 option(BUILD_PDR_EXAMPLE "build pdr example" OFF)
 
+include(FetchContent)
+FetchContent_Declare(mongoose GIT_REPOSITORY https://github.com/cesanta/mongoose.git
+        GIT_TAG 5c8e05a4fc34c5309ceea887a7e60b895b2100d7) # 7.11
+FetchContent_MakeAvailable(mongoose)
+
+FetchContent_Declare(tinyxml2 GIT_REPOSITORY https://github.com/leethomason/tinyxml2.git
+        GIT_TAG e05956094c27117f989d22f25b75633123d72a83) # 2023/01/15
+FetchContent_MakeAvailable(tinyxml2)
+
 file(GLOB_RECURSE MAIN_SRC ${CMAKE_SOURCE_DIR}/src/*.cpp)
 add_library(${PROJECT_NAME}
         ${MAIN_SRC}
-        ${CMAKE_SOURCE_DIR}/library/mongoose/mongoose.c
-        ${CMAKE_SOURCE_DIR}/library/tinyxml2/tinyxml2.cpp)
+        ${CMAKE_BINARY_DIR}/_deps/mongoose-src/mongoose.c
+        )
 target_include_directories(${PROJECT_NAME} PUBLIC
         ${CMAKE_SOURCE_DIR}/include
-        ${CMAKE_SOURCE_DIR}/library/mongoose
-        ${CMAKE_SOURCE_DIR}/library/tinyxml2)
+        ${CMAKE_BINARY_DIR}/_deps/mongoose-src
+        )
+target_link_libraries(${PROJECT_NAME} PUBLIC tinyxml2)
 
 if (BUILD_PDR_EXAMPLE)
     message(STATUS "Build pdr example: server")
