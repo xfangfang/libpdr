@@ -81,12 +81,24 @@ namespace pdr {
             mg_mgr_init(&mgr);
             c = mg_listen(&mgr, ip.c_str(), fn, this);
 
+            if (!c) {
+                mg_mgr_free(&mgr);
+                //todo: report ssdp error
+                return;
+            }
+
             // 加入 SSDP 组播
             struct ip_mreq mreq{};
             mreq.imr_multiaddr.s_addr = inet_addr(SSDP_MULTICAST_ADDR);
             mreq.imr_interface.s_addr = htonl(INADDR_ANY);
+#ifdef _WIN32
+            if (setsockopt(FD(c), IPPROTO_IP, IP_ADD_MEMBERSHIP, reinterpret_cast<const char*>(&mreq), sizeof(mreq)) < 0) {
+#else
             if (setsockopt(FD(c), IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
-                exit(EXIT_FAILURE);
+#endif
+                mg_mgr_free(&mgr);
+                //todo: report ssdp error
+                return;
             }
             while (running) mg_mgr_poll(&mgr, 200);
             mg_mgr_free(&mgr);

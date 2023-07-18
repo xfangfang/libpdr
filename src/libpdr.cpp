@@ -7,7 +7,7 @@ namespace pdr {
         SSDPServiceList services;
 
         char temp[100];
-        snprintf(temp, sizeof(temp), "http://%s:%lu/description.xml", ip.c_str(), port);
+        snprintf(temp, sizeof(temp), "http://%s:%d/description.xml", ip.c_str(), (int)port);
         std::string location{temp};
 
         ssdp.registerServices({{uuid, "upnp:rootdevice", "", location},
@@ -26,7 +26,7 @@ namespace pdr {
 
     void DLNA::start() {
         char url[30];
-        snprintf(url, sizeof(url), "http://0.0.0.0:%lu", port);
+        snprintf(url, sizeof(url), "http://0.0.0.0:%d", (int)port);
         soap.start(url);
         ssdp.start();
         running = true;
