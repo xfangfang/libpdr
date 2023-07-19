@@ -88,140 +88,163 @@ public:
     static std::string GetTransportInfo(ACTION_PARAMS);
 
     static std::string GetPositionInfo(ACTION_PARAMS);
+
+protected:
+    static const std::string AVTransport;
 };
 
-    class RendererServiceRenderingControl: public RendererService {
-    public:
-        RendererServiceRenderingControl();
-    };
+class RendererServiceRenderingControl : public RendererService {
+public:
+    RendererServiceRenderingControl();
 
-    class RendererServiceConnectionManager: public RendererService {
-    public:
-        RendererServiceConnectionManager();
-    };
-    /// SOAP
+protected:
+    static const std::string RenderingControl;
+};
 
-    class RendererDevice {
-    public:
-        RendererDevice();
+class RendererServiceConnectionManager : public RendererService {
+public:
+    RendererServiceConnectionManager();
 
-        std::string getString(const std::string& type = "");
+protected:
+    static const std::string ConnectionManager;
+};
 
-        void print();
+/// SOAP
 
-        void updateDeviceInfo(const std::string& name, const std::string& uuid,
-                              const std::string& manufacturer = "", const std::string& manufacturerUrl = "",
-                              const std::string& modelDesc = "", const std::string& modelName = "",
-                              const std::string& modelNumber = "", const std::string& modelUrl = "",
-                              const std::string& serialNum = "");
+class RendererDevice {
+public:
+    RendererDevice();
 
-        void setDeviceInfo(const std::string& key, const std::string& value);
+    std::string getString(const std::string& type = "");
 
-        void addService(std::shared_ptr<RendererService> service);
+    void print();
 
-        std::unordered_map<std::string, std::shared_ptr<RendererService>>& getServiceList();
+    void updateDeviceInfo(const std::string& name, const std::string& uuid,
+                          const std::string& manufacturer    = "",
+                          const std::string& manufacturerUrl = "",
+                          const std::string& modelDesc       = "",
+                          const std::string& modelName       = "",
+                          const std::string& modelNumber     = "",
+                          const std::string& modelUrl        = "",
+                          const std::string& serialNum       = "");
 
-        std::string parseRequest(const std::string& service, const std::string& action, const std::string& data);
+    void setDeviceInfo(const std::string& key, const std::string& value);
 
-    protected:
-        tinyxml2::XMLDocument doc;
-        tinyxml2::XMLElement* device;
-        tinyxml2::XMLElement* deviceType;
-        tinyxml2::XMLElement* serviceList;
-        std::unordered_map<std::string, std::shared_ptr<RendererService>> serviceMap;
+    void addService(std::shared_ptr<RendererService> service);
 
-        void addServiceXML(const std::string& name, int version);
-    };
+    std::unordered_map<std::string, std::shared_ptr<RendererService>>&
+    getServiceList();
 
-    class SOAP {
-    public:
-        SOAP() = default;
+    std::string parseRequest(const std::string& service,
+                             const std::string& action,
+                             const std::string& data);
 
-        void start(const std::string& url="http://0.0.0.0:8000");
+protected:
+    tinyxml2::XMLDocument doc;
+    tinyxml2::XMLElement* device;
+    tinyxml2::XMLElement* deviceType;
+    tinyxml2::XMLElement* serviceList;
+    std::unordered_map<std::string, std::shared_ptr<RendererService>>
+        serviceMap;
 
-        void stop(bool wait);
+    void addServiceXML(const std::string& name, int version);
+};
 
-        RendererDevice& getDevice();
+class SOAP {
+public:
+    SOAP() = default;
 
-        ~SOAP();
+    void start(const std::string& url = "http://0.0.0.0:8000");
 
-    protected:
-        std::thread runningThread;
-        bool running = false;
-        pdr::RendererDevice device;
+    void stop(bool wait);
 
-        static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data);
-    };
+    RendererDevice& getDevice();
 
-    /// SSDP
+    ~SOAP();
 
-    class SSDPService {
-    public:
-        SSDPService() = default;
+protected:
+    std::thread runningThread;
+    bool running = false;
+    pdr::RendererDevice device;
 
-        // uuid example: "uuid:00000000-0000-0000-0000-000000000000"
-        // scope example: "upnp:rootdevice", "urn:schemas-upnp-org:device", "urn:schemas-upnp-org:service"
-        // name example: "MediaRenderer:1", "ConnectionManager:1"
-        SSDPService(const std::string uuid, const std::string &scope, const std::string &name, const std::string& location);
+    static void fn(struct mg_connection* c, int ev, void* ev_data,
+                   void* fn_data);
+};
 
-        std::string getST() const {
-            if (scope.empty() && name.empty()) return uuid;
-            if (name.empty()) return scope;
-            return scope + ":" + name;
-        }
+/// SSDP
 
-        std::string getUSN() const {
-            if (scope.empty()) return uuid;
-            if (name.empty()) return uuid + "::" + scope;
-            return uuid + "::" + scope + ":" + name;
-        }
+class SSDPService {
+public:
+    SSDPService() = default;
 
-        std::string uuid, scope, name;
-        std::string location, serverName = "libpdr/1.0", cacheControl = "max-age=1800";
-    };
+    // uuid example: "uuid:00000000-0000-0000-0000-000000000000"
+    // scope example: "upnp:rootdevice", "urn:schemas-upnp-org:device", "urn:schemas-upnp-org:service"
+    // name example: "MediaRenderer:1", "ConnectionManager:1"
+    SSDPService(const std::string uuid, const std::string& scope,
+                const std::string& name, const std::string& location);
 
-    typedef std::vector<SSDPService> SSDPServiceList;
-    typedef std::unordered_map<std::string, SSDPService> SSDPServiceMap;
+    std::string getST() const {
+        if (scope.empty() && name.empty()) return uuid;
+        if (name.empty()) return scope;
+        return scope + ":" + name;
+    }
 
-    class SSDP {
-    public:
-        static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data);
+    std::string getUSN() const {
+        if (scope.empty()) return uuid;
+        if (name.empty()) return uuid + "::" + scope;
+        return uuid + "::" + scope + ":" + name;
+    }
 
-        void registerServices(const SSDPServiceList& service);
+    std::string uuid, scope, name;
+    std::string location, serverName = "libpdr/1.0",
+                          cacheControl = "max-age=1800";
+};
 
-        SSDPServiceMap& getServices();
+typedef std::vector<SSDPService> SSDPServiceList;
+typedef std::unordered_map<std::string, SSDPService> SSDPServiceMap;
 
-        void start(const std::string& ip = "udp://0.0.0.0:1900");
+class SSDP {
+public:
+    static void fn(struct mg_connection* c, int ev, void* ev_data,
+                   void* fn_data);
 
-        void stop(bool wait = false);
+    void registerServices(const SSDPServiceList& service);
 
-        ~SSDP();
+    SSDPServiceMap& getServices();
 
-    protected:
-        std::thread ssdpThread;
-        bool running = false;
-        SSDPServiceMap services;
-    };
+    void start(const std::string& ip = "udp://0.0.0.0:1900");
 
-    /// DLNA
+    void stop(bool wait = false);
 
-    class DLNA {
-    public:
-        DLNA(const std::string ip, size_t port = 9958, const std::string& uuid = "");
+    ~SSDP();
 
-        void setDeviceInfo(const std::string& key, const std::string& value);
+protected:
+    std::thread ssdpThread;
+    bool running = false;
+    SSDPServiceMap services;
+};
 
-        void start();
+/// DLNA
 
-        void stop(bool wait = true);
-    protected:
-        std::string uuid;
-        size_t port;
-        pdr::SSDP ssdp;
-        pdr::SOAP soap;
+class DLNA {
+public:
+    DLNA(const std::string ip, size_t port = 9958,
+         const std::string& uuid = "");
 
-        bool running = false;
-        std::thread runningThread;
-    };
+    void setDeviceInfo(const std::string& key, const std::string& value);
 
-}
+    void start();
+
+    void stop(bool wait = true);
+
+protected:
+    std::string uuid;
+    size_t port;
+    pdr::SSDP ssdp;
+    pdr::SOAP soap;
+
+    bool running = false;
+    std::thread runningThread;
+};
+
+}  // namespace pdr
