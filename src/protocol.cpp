@@ -977,9 +977,23 @@ namespace pdr {
                                                               const std::string& action,
                                                               const std::string& data) {
         PARSE_DATA(data.c_str());
+
+        // video/audio link
         GET_VAR(CurrentURI, "CurrentURI");
-//        GET_VAR(CurrentURIMetaData, "CurrentURIMetaData");
-        Event::instance().fire("CurrentURI", (void*)CurrentURI->GetText());
+        DLNA_EVENT.fire("CurrentURI", (void*)CurrentURI->GetText());
+
+        // title
+        GET_VAR(CurrentURIMetaData, "CurrentURIMetaData");
+        tinyxml2::XMLDocument metaData;
+        metaData.Parse(CurrentURIMetaData->GetText());
+        if (!metaData.Error()) {
+            auto title = metaData.FirstChildElement("DIDL-Lite")
+                             ->FirstChildElement("item")
+                             ->FirstChildElement("dc:title");
+            if (title)
+                DLNA_EVENT.fire("CurrentURIMetaData", (void*)title->GetText());
+        }
+
         return DEFAULT_RES();
     }
 
