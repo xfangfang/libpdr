@@ -222,11 +222,16 @@ namespace pdr {
     }
 
     void SOAP::start(const std::string& url) {
-        running = true;
-        runningThread = std::thread([this, url](){
-            struct mg_mgr mgr{};
+        running       = true;
+        runningThread = std::thread([this, url]() {
+            struct mg_mgr mgr {};
             mg_mgr_init(&mgr);
-            mg_http_listen(&mgr, url.c_str(), fn, this);
+            auto c = mg_http_listen(&mgr, url.c_str(), fn, this);
+            if (!c) {
+                DLNA_ERROR("SOAP: Cannot listen to: " + url + ERRNO_MSG);
+                mg_mgr_free(&mgr);
+                return;
+            }
             while (running) mg_mgr_poll(&mgr, 200);
             mg_mgr_free(&mgr);
         });

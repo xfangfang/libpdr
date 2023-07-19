@@ -64,26 +64,23 @@ namespace pdr {
         }
     }
 
-    void SSDP::registerServices(const SSDPServiceList& service) {
-        for(auto& s: service)
-            services[s.getUSN()] = s;
+    void SSDP::registerServices(const SSDPServiceList &service) {
+        for (auto &s : service) services[s.getUSN()] = s;
     }
 
-    SSDPServiceMap& SSDP::getServices() {
-        return services;
-    }
+    SSDPServiceMap &SSDP::getServices() { return services; }
 
-    void SSDP::start(const std::string& ip) {
-        running = true;
-        ssdpThread = std::thread([this, ip](){
-            struct mg_mgr mgr{};
+    void SSDP::start(const std::string &url) {
+        running    = true;
+        ssdpThread = std::thread([this, url]() {
+            struct mg_mgr mgr {};
             static struct mg_connection *c;
             mg_mgr_init(&mgr);
-            c = mg_listen(&mgr, ip.c_str(), fn, this);
+            c = mg_listen(&mgr, url.c_str(), fn, this);
 
             if (!c) {
                 mg_mgr_free(&mgr);
-                //todo: report ssdp error
+                DLNA_ERROR("SSDP: Cannot listen to: " + url + ERRNO_MSG);
                 return;
             }
 
@@ -91,13 +88,9 @@ namespace pdr {
             struct ip_mreq mreq{};
             mreq.imr_multiaddr.s_addr = inet_addr(SSDP_MULTICAST_ADDR);
             mreq.imr_interface.s_addr = htonl(INADDR_ANY);
-#ifdef _WIN32
             if (setsockopt(FD(c), IPPROTO_IP, IP_ADD_MEMBERSHIP, reinterpret_cast<const char*>(&mreq), sizeof(mreq)) < 0) {
-#else
-            if (setsockopt(FD(c), IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
-#endif
                 mg_mgr_free(&mgr);
-                //todo: report ssdp error
+                DLNA_ERROR("SSDP: Cannot join to multicast group" + ERRNO_MSG);
                 return;
             }
             while (running) mg_mgr_poll(&mgr, 200);

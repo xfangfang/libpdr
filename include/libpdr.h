@@ -11,79 +11,92 @@
 #include <tinyxml2.h>
 
 namespace pdr {
-    /// Event
+/// Event
 
-    typedef std::function<void(std::string, void*)> pdrEvent;
-    typedef std::list<pdrEvent> CallbacksList;
-    typedef CallbacksList::iterator Subscription;
+typedef std::function<void(std::string, void*)> pdrEvent;
+typedef std::list<pdrEvent> CallbacksList;
+typedef CallbacksList::iterator Subscription;
+
+extern char ErrnoMsgShareBuf[256];
 
 #define DLNA_EVENT pdr::Event::instance()
+#define DLNA_ERROR(m) DLNA_EVENT.fire("Error", (void*)std::string{m}.c_str())
+#define ERRNO_MSG                                                   \
+    (strerror_r(errno, ErrnoMsgShareBuf, sizeof(ErrnoMsgShareBuf)), \
+     "; ERRNO: " + std::string{ErrnoMsgShareBuf})
 
-    class Event {
-    public:
-        Subscription subscribe(const pdrEvent& event) {
-            subscribers.push_back(event);
-            return --subscribers.end();
+class Event {
+public:
+    Subscription subscribe(const pdrEvent& event) {
+        subscribers.push_back(event);
+        return --subscribers.end();
+    }
+
+    void unsubscribe(Subscription sub) {
+        if (subscribers.size() > 0) subscribers.erase(sub);
+    }
+
+    void fire(std::string event, void* data) {
+        for (const auto& subscriber : subscribers) {
+            subscriber(event, data);
         }
+    }
 
-        void unsubscribe(Subscription sub) {
-            if (subscribers.size() > 0)
-                subscribers.erase(sub);
-        }
+    static Event& instance() {
+        static Event instance;
+        return instance;
+    }
 
-        void fire(std::string event, void* data) {
-            for (const auto& subscriber : subscribers) {
-                subscriber(event, data);
-            }
-        }
+private:
+    CallbacksList subscribers;
+};
 
-        static Event& instance()
-        {
-            static Event instance;
-            return instance;
-        }
+/// Protocol
 
-    private:
-        CallbacksList subscribers;
-    };
+class RendererService {
+public:
+    RendererService() = default;
 
-    /// Protocol
+    RendererService(const std::string& name, int version,
+                    const std::string& xml);
 
-    class RendererService {
-    public:
-        RendererService() = default;
+    std::string getString();
 
-        RendererService(const std::string& name, int version, const std::string& xml);
+    int getVersion() const;
 
-        std::string getString();
+    std::string getName() const;
 
-        int getVersion() const;
+    std::string request(const std::string& name, const std::string& action,
+                        const std::string& data);
 
-        std::string getName() const;
+    static std::string dummyRequest(const std::string& name,
+                                    const std::string& action);
 
-        std::string request(const std::string& name, const std::string& action, const std::string& data);
+protected:
+    std::string name;
+    int version = 1;
+    tinyxml2::XMLDocument doc;
+    std::unordered_map<
+        std::string,
+        std::function<std::string(RendererService*, std::string, std::string)>>
+        functionMap;
 
-        static std::string dummyRequest(const std::string& name, const std::string& action);
+    static std::string generateXMLResponse(
+        const std::string& service, const std::string& action,
+        const std::unordered_map<std::string, std::string>& res);
+};
 
-    protected:
-        std::string name;
-        int version = 1;
-        tinyxml2::XMLDocument doc;
-        std::unordered_map<std::string, std::function<std::string(RendererService*, std::string, std::string)>> functionMap;
+class RendererServiceAVTransport : public RendererService {
+public:
+    RendererServiceAVTransport();
 
-        static std::string generateXMLResponse(const std::string& service,
-                                               const std::string& action,
-                                               const std::unordered_map<std::string, std::string>& res);
-    };
+    static std::string SetAVTransportURI(RendererService* self,
+                                         const std::string& action,
+                                         const std::string& data);
 
-    class RendererServiceAVTransport: public RendererService {
-    public:
-        RendererServiceAVTransport();
-
-        static std::string SetAVTransportURI(RendererService* self, const std::string& action, const std::string& data);
-
-        static std::string Stop(RendererService* self, const std::string& action, const std::string& data);
-    };
+    static std::string Stop(RendererService* self, const std::string& action,
+                            const std::string& data);
+};
 
     class RendererServiceRenderingControl: public RendererService {
     public:
