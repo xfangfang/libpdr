@@ -228,7 +228,7 @@ namespace pdr {
             mg_mgr_init(&mgr);
             auto c = mg_http_listen(&mgr, url.c_str(), fn, this);
             if (!c) {
-                DLNA_ERROR("SOAP: Cannot listen to: " + url + ERRNO_MSG);
+                DLNA_ERROR("SOAP: Cannot listen to: " + url);
                 mg_mgr_free(&mgr);
                 return;
             }

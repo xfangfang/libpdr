@@ -80,7 +80,7 @@ namespace pdr {
 
             if (!c) {
                 mg_mgr_free(&mgr);
-                DLNA_ERROR("SSDP: Cannot listen to: " + url + ERRNO_MSG);
+                DLNA_ERROR("SSDP: Cannot listen to: " + url);
                 return;
             }
 
@@ -90,7 +90,7 @@ namespace pdr {
             mreq.imr_interface.s_addr = htonl(INADDR_ANY);
             if (setsockopt(FD(c), IPPROTO_IP, IP_ADD_MEMBERSHIP, reinterpret_cast<const char*>(&mreq), sizeof(mreq)) < 0) {
                 mg_mgr_free(&mgr);
-                DLNA_ERROR("SSDP: Cannot join to multicast group" + ERRNO_MSG);
+                DLNA_ERROR("SSDP: Cannot join to multicast group");
                 return;
             }
             while (running) mg_mgr_poll(&mgr, 200);

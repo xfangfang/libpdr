@@ -4,8 +4,6 @@
 
 namespace pdr {
 
-char ErrnoMsgShareBuf[256];
-
 DLNA::DLNA(const std::string ip, size_t port, const std::string& uuid)
     : uuid(uuid), port(port) {
     SSDPServiceList services;

@@ -20,10 +20,7 @@ typedef CallbacksList::iterator Subscription;
 extern char ErrnoMsgShareBuf[256];
 
 #define DLNA_EVENT pdr::Event::instance()
-#define DLNA_ERROR(m) DLNA_EVENT.fire("Error", (void*)std::string{m}.c_str())
-#define ERRNO_MSG                                                   \
-    (strerror_r(errno, ErrnoMsgShareBuf, sizeof(ErrnoMsgShareBuf)), \
-     "; ERRNO: " + std::string{ErrnoMsgShareBuf})
+#define DLNA_ERROR(m) Event::showError(m)
 
 class Event {
 public:
@@ -45,6 +42,19 @@ public:
     static Event& instance() {
         static Event instance;
         return instance;
+    }
+
+    static void showError(std::string msg, bool withErrno = true) {
+        if (withErrno && errno != 0) {
+            char ErrnoMsgShareBuf[256];
+#ifdef _WIN32
+            strerror_s(ErrnoMsgShareBuf, sizeof(ErrnoMsgShareBuf), errno);
+#else
+            strerror_r(errno, ErrnoMsgShareBuf, sizeof(ErrnoMsgShareBuf));
+#endif
+            msg += "; ERRNO: " + std::string{ErrnoMsgShareBuf};
+        }
+        DLNA_EVENT.fire("Error", (void*)std::string{msg}.c_str());
     }
 
 private:
