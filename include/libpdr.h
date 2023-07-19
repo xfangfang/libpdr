@@ -24,38 +24,15 @@ extern char ErrnoMsgShareBuf[256];
 
 class Event {
 public:
-    Subscription subscribe(const pdrEvent& event) {
-        subscribers.push_back(event);
-        return --subscribers.end();
-    }
+    Subscription subscribe(const pdrEvent& event);
 
-    void unsubscribe(Subscription sub) {
-        if (subscribers.size() > 0) subscribers.erase(sub);
-    }
+    void unsubscribe(Subscription sub);
 
-    void fire(std::string event, void* data) {
-        for (const auto& subscriber : subscribers) {
-            subscriber(event, data);
-        }
-    }
+    void fire(std::string event, void* data);
 
-    static Event& instance() {
-        static Event instance;
-        return instance;
-    }
+    static Event& instance();
 
-    static void showError(std::string msg, bool withErrno = true) {
-        if (withErrno && errno != 0) {
-            char ErrnoMsgShareBuf[256];
-#ifdef _WIN32
-            strerror_s(ErrnoMsgShareBuf, sizeof(ErrnoMsgShareBuf), errno);
-#else
-            strerror_r(errno, ErrnoMsgShareBuf, sizeof(ErrnoMsgShareBuf));
-#endif
-            msg += "; ERRNO: " + std::string{ErrnoMsgShareBuf};
-        }
-        DLNA_EVENT.fire("Error", (void*)std::string{msg}.c_str());
-    }
+    static void showError(std::string msg, bool withErrno = true);
 
 private:
     CallbacksList subscribers;
@@ -63,6 +40,8 @@ private:
 
 /// Protocol
 
+#define ACTION_PARAMS \
+    RendererService *self, const std::string &action, const std::string &data
 class RendererService {
 public:
     RendererService() = default;
@@ -100,12 +79,15 @@ class RendererServiceAVTransport : public RendererService {
 public:
     RendererServiceAVTransport();
 
-    static std::string SetAVTransportURI(RendererService* self,
-                                         const std::string& action,
-                                         const std::string& data);
+    static std::string SetAVTransportURI(ACTION_PARAMS);
 
-    static std::string Stop(RendererService* self, const std::string& action,
-                            const std::string& data);
+    static std::string Stop(ACTION_PARAMS);
+
+    static std::string Play(ACTION_PARAMS);
+
+    static std::string GetTransportInfo(ACTION_PARAMS);
+
+    static std::string GetPositionInfo(ACTION_PARAMS);
 };
 
     class RendererServiceRenderingControl: public RendererService {

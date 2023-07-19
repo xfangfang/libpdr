@@ -7,26 +7,8 @@ namespace pdr {
 #define GET_VAR(var, key) tinyxml2::XMLElement* var = root->FirstChildElement(key)
 #define DEFAULT_RES() generateXMLResponse(self->getName(), action, {{"InstanceID", "0"}})
 
-    const std::string descriptionXML = R"xml(<?xml version="1.0" encoding="UTF-8"?>
-<root
-    xmlns:dlna="urn:schemas-dlna-org:device-1-0"
-    xmlns="urn:schemas-upnp-org:device-1-0">
-    <specVersion>
-        <major>1</major>
-        <minor>0</minor>
-    </specVersion>
-    <device>
-        <deviceType>urn:schemas-upnp-org:device:MediaRenderer:1</deviceType>
-        <dlna:X_DLNADOC xmlns:dlna="urn:schemas-dlna-org:device-1-0">DMR-1.50</dlna:X_DLNADOC>
-        <serviceList>
-        </serviceList>
-    </device>
-</root>
-)xml";
-
     const std::string AVTransport = R"xml(<?xml version="1.0" encoding="UTF-8"?>
-<scpd
-        xmlns="urn:schemas-upnp-org:service-1-0">
+<scpd xmlns="urn:schemas-upnp-org:service-1-0">
     <specVersion>
         <major>1</major>
         <minor>0</minor>
@@ -46,7 +28,8 @@ namespace pdr {
                     <relatedStateVariable>CurrentTransportActions</relatedStateVariable>
                 </argument>
             </argumentList>
-        </action>
+        </action>)xml"
+                                R"xml(
         <action>
             <name>GetDeviceCapabilities</name>
             <argumentList>
@@ -71,7 +54,8 @@ namespace pdr {
                     <relatedStateVariable>PossibleRecordQualityModes</relatedStateVariable>
                 </argument>
             </argumentList>
-        </action>
+        </action>)xml"
+                                R"xml(
         <action>
             <name>GetMediaInfo</name>
             <argumentList>
@@ -126,7 +110,8 @@ namespace pdr {
                     <relatedStateVariable>RecordMediumWriteStatus</relatedStateVariable>
                 </argument>
             </argumentList>
-        </action>
+        </action>)xml"
+                                R"xml(
         <action>
             <name>GetPositionInfo</name>
             <argumentList>
@@ -176,7 +161,8 @@ namespace pdr {
                     <relatedStateVariable>AbsoluteCounterPosition</relatedStateVariable>
                 </argument>
             </argumentList>
-        </action>
+        </action>)xml"
+                                R"xml(
         <action>
             <name>GetTransportInfo</name>
             <argumentList>
@@ -201,7 +187,8 @@ namespace pdr {
                     <relatedStateVariable>TransportPlaySpeed</relatedStateVariable>
                 </argument>
             </argumentList>
-        </action>
+        </action>)xml"
+                                R"xml(
         <action>
             <name>GetTransportSettings</name>
             <argumentList>
@@ -221,7 +208,8 @@ namespace pdr {
                     <relatedStateVariable>CurrentRecordQualityMode</relatedStateVariable>
                 </argument>
             </argumentList>
-        </action>
+        </action>)xml"
+                                R"xml(
         <action>
             <name>Next</name>
             <argumentList>
@@ -256,7 +244,8 @@ namespace pdr {
                     <relatedStateVariable>TransportPlaySpeed</relatedStateVariable>
                 </argument>
             </argumentList>
-        </action>
+        </action>)xml"
+                                R"xml(
         <action>
             <name>Previous</name>
             <argumentList>
@@ -306,7 +295,8 @@ namespace pdr {
                     <relatedStateVariable>AVTransportURIMetaData</relatedStateVariable>
                 </argument>
             </argumentList>
-        </action>
+        </action>)xml"
+                                R"xml(
         <action>
             <name>SetPlayMode</name>
             <argumentList>
@@ -332,7 +322,8 @@ namespace pdr {
                 </argument>
             </argumentList>
         </action>
-    </actionList>
+    </actionList>)xml"
+                                R"xml(
     <serviceStateTable>
         <stateVariable sendEvents="no">
             <name>CurrentPlayMode</name>
@@ -364,7 +355,8 @@ namespace pdr {
         <stateVariable sendEvents="no">
             <name>CurrentTrackTitle</name>
             <dataType>string</dataType>
-        </stateVariable>
+        </stateVariable>)xml"
+                                R"xml(
         <stateVariable sendEvents="no">
             <name>DisplayCurrentSubtitle</name>
             <dataType>boolean</dataType>
@@ -400,7 +392,8 @@ namespace pdr {
         <stateVariable sendEvents="no">
             <name>A_ARG_TYPE_InstanceID</name>
             <dataType>ui4</dataType>
-        </stateVariable>
+        </stateVariable>)xml"
+                                R"xml(
         <stateVariable sendEvents="no">
             <name>AVTransportURI</name>
             <dataType>string</dataType>
@@ -430,7 +423,8 @@ namespace pdr {
             <allowedValueList>
                 <allowedValue>NOT_IMPLEMENTED</allowedValue>
             </allowedValueList>
-        </stateVariable>
+        </stateVariable>)xml"
+                                R"xml(
         <stateVariable sendEvents="no">
             <name>CurrentTrack</name>
             <dataType>ui4</dataType>
@@ -462,7 +456,8 @@ namespace pdr {
         <stateVariable sendEvents="no">
             <name>CurrentTransportActions</name>
             <dataType>string</dataType>
-        </stateVariable>
+        </stateVariable>)xml"
+                                R"xml(
         <stateVariable sendEvents="no">
             <name>RecordMediumWriteStatus</name>
             <dataType>string</dataType>
@@ -492,7 +487,8 @@ namespace pdr {
                 <minimum>0</minimum>
                 <maximum>65535</maximum>
             </allowedValueRange>
-        </stateVariable>
+        </stateVariable>)xml"
+                                R"xml(
         <stateVariable sendEvents="no">
             <name>A_ARG_TYPE_SeekMode</name>
             <dataType>string</dataType>
@@ -536,7 +532,8 @@ namespace pdr {
 </scpd>
 )xml";
 
-    const std::string RenderingControl = R"xml(<?xml version="1.0" encoding="UTF-8"?>
+const std::string RenderingControl =
+        R"xml(<?xml version="1.0" encoding="UTF-8"?>
 <scpd
     xmlns="urn:schemas-upnp-org:service-1-0">
     <specVersion>
@@ -583,7 +580,8 @@ namespace pdr {
                     <relatedStateVariable>Volume</relatedStateVariable>
                 </argument>
             </argumentList>
-        </action>
+        </action>)xml"
+        R"xml(
         <action>
             <name>GetVolumeDB</name>
             <argumentList>
@@ -628,7 +626,8 @@ namespace pdr {
                     <relatedStateVariable>VolumeDB</relatedStateVariable>
                 </argument>
             </argumentList>
-        </action>
+        </action>)xml"
+        R"xml(
         <action>
             <name>ListPresets</name>
             <argumentList>
@@ -678,7 +677,8 @@ namespace pdr {
                     <relatedStateVariable>Mute</relatedStateVariable>
                 </argument>
             </argumentList>
-        </action>
+        </action>)xml"
+        R"xml(
         <action>
             <name>SetVolume</name>
             <argumentList>
@@ -724,7 +724,8 @@ namespace pdr {
                 <maximum>100</maximum>
                 <step>1</step>
             </allowedValueRange>
-        </stateVariable>
+        </stateVariable>)xml"
+        R"xml(
         <stateVariable sendEvents="no">
             <name>Mute</name>
             <dataType>boolean</dataType>
@@ -755,7 +756,8 @@ namespace pdr {
 </scpd>
 )xml";
 
-    const std::string ConnectionManager = R"xml(<?xml version="1.0" encoding="UTF-8"?>
+    const std::string ConnectionManager =
+    R"xml(<?xml version="1.0" encoding="UTF-8"?>
 <scpd
     xmlns="urn:schemas-upnp-org:service-1-0">
     <specVersion>
@@ -785,7 +787,8 @@ namespace pdr {
                     <name>ProtocolInfo</name>
                     <direction>out</direction>
                     <relatedStateVariable>A_ARG_TYPE_ProtocolInfo</relatedStateVariable>
-                </argument>
+                </argument>)xml"
+    R"xml(
                 <argument>
                     <name>PeerConnectionManager</name>
                     <direction>out</direction>
@@ -822,7 +825,8 @@ namespace pdr {
                     <relatedStateVariable>SinkProtocolInfo</relatedStateVariable>
                 </argument>
             </argumentList>
-        </action>
+        </action>)xml"
+    R"xml(
         <action>
             <name>GetCurrentConnectionIDs</name>
             <argumentList>
@@ -857,7 +861,8 @@ namespace pdr {
         <stateVariable sendEvents="no">
             <name>A_ARG_TYPE_RcsID</name>
             <dataType>i4</dataType>
-        </stateVariable>
+        </stateVariable>)xml"
+    R"xml(
         <stateVariable sendEvents="no">
             <name>A_ARG_TYPE_ConnectionID</name>
             <dataType>i4</dataType>
@@ -890,30 +895,27 @@ namespace pdr {
 </scpd>
 )xml";
 
+RendererService::RendererService(const std::string& name, int version,
+                                 const std::string& xml)
+    : name(name), version(version) {
+    doc.Parse(xml.c_str());
+    //        auto scpd = doc.FirstChildElement("scpd");
+    //        auto actionList = scpd->FirstChildElement("actionList");
+    //        for (auto item = actionList->FirstChildElement("action"); item; item = item->NextSiblingElement("action")) {
+    //            std::string name = item->FirstChildElement("name")->GetText();
+    //            auto argumentList = item->FirstChildElement("argumentList");
+    //            for (auto argument = argumentList->FirstChildElement("argument"); argument; argument = argument->NextSiblingElement("argument")) {
+    //
+    //            }
+    //        }
+    //        printf("%s\n", getString());
+}
 
-    RendererService::RendererService(const std::string& name, int version, const std::string& xml):name(name), version(version) {
-        doc.Parse(xml.c_str());
-//        auto scpd = doc.FirstChildElement("scpd");
-//        auto actionList = scpd->FirstChildElement("actionList");
-//        for (auto item = actionList->FirstChildElement("action"); item; item = item->NextSiblingElement("action")) {
-//            std::string name = item->FirstChildElement("name")->GetText();
-//            auto argumentList = item->FirstChildElement("argumentList");
-//            for (auto argument = argumentList->FirstChildElement("argument"); argument; argument = argument->NextSiblingElement("argument")) {
-//
-//            }
-//        }
-//        printf("%s\n", getString());
-    }
+int RendererService::getVersion() const { return version; }
 
-    int RendererService::getVersion() const {
-        return version;
-    }
+std::string RendererService::getName() const { return name; }
 
-    std::string RendererService::getName() const {
-        return name;
-    }
-
-    std::string RendererService::request(const std::string& name, const std::string& action, const std::string& data) {
+std::string RendererService::request(const std::string& name, const std::string& action, const std::string& data) {
         if (functionMap.count(name) == 0) {
             return RendererService::dummyRequest(name, action);
         }
@@ -970,12 +972,13 @@ namespace pdr {
 
     RendererServiceAVTransport::RendererServiceAVTransport():RendererService("AVTransport", 1, AVTransport) {
         functionMap["SetAVTransportURI"] = SetAVTransportURI;
-        functionMap["Stop"] = Stop;
+        functionMap["Stop"]              = Stop;
+        functionMap["Play"]              = Play;
+        functionMap["GetTransportInfo"]  = GetTransportInfo;
+        functionMap["GetPositionInfo"]   = GetPositionInfo;
     }
 
-    std::string RendererServiceAVTransport::SetAVTransportURI(RendererService* self,
-                                                              const std::string& action,
-                                                              const std::string& data) {
+    std::string RendererServiceAVTransport::SetAVTransportURI(ACTION_PARAMS) {
         PARSE_DATA(data.c_str());
 
         // video/audio link
@@ -997,18 +1000,31 @@ namespace pdr {
         return DEFAULT_RES();
     }
 
-    std::string RendererServiceAVTransport::Stop(RendererService* self, const std::string& action, const std::string& data) {
+    std::string RendererServiceAVTransport::Stop(ACTION_PARAMS) {
         Event::instance().fire("Stop", nullptr);
+        return DEFAULT_RES();
+    }
+
+    std::string RendererServiceAVTransport::Play(ACTION_PARAMS) {
+        Event::instance().fire("Play", nullptr);
+        return DEFAULT_RES();
+    }
+
+    std::string RendererServiceAVTransport::GetTransportInfo(ACTION_PARAMS) {
+        return DEFAULT_RES();
+    }
+
+    std::string RendererServiceAVTransport::GetPositionInfo(ACTION_PARAMS) {
         return DEFAULT_RES();
     }
 
     /// RendererServiceRenderingControl
 
-    RendererServiceRenderingControl::RendererServiceRenderingControl():RendererService("RenderingControl", 1, RenderingControl) {
-    }
+    RendererServiceRenderingControl::RendererServiceRenderingControl()
+        : RendererService("RenderingControl", 1, RenderingControl) {}
 
     /// RendererServiceConnectionManager
 
-    RendererServiceConnectionManager::RendererServiceConnectionManager():RendererService("ConnectionManager", 1, ConnectionManager) {
-    }
-};
+    RendererServiceConnectionManager::RendererServiceConnectionManager()
+        : RendererService("ConnectionManager", 1, ConnectionManager) {}
+    };  // namespace pdr

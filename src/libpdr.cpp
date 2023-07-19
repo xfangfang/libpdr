@@ -37,8 +37,41 @@ void DLNA::start() {
 }
 
 void DLNA::stop(bool wait) {
-        soap.stop(wait);
-        ssdp.stop(wait);
-        running = false;
+    soap.stop(wait);
+    ssdp.stop(wait);
+    running = false;
+}
+
+Subscription Event::subscribe(const pdrEvent& event) {
+    subscribers.push_back(event);
+    return --subscribers.end();
+}
+
+void Event::unsubscribe(Subscription sub) {
+    if (subscribers.size() > 0) subscribers.erase(sub);
+}
+
+void Event::fire(std::string event, void* data) {
+    for (const auto& subscriber : subscribers) {
+        subscriber(event, data);
     }
 }
+
+Event& Event::instance() {
+    static Event instance;
+    return instance;
+}
+
+void Event::showError(std::string msg, bool withErrno) {
+    if (withErrno && errno != 0) {
+        char ErrnoMsgShareBuf[256];
+#ifdef _WIN32
+        strerror_s(ErrnoMsgShareBuf, sizeof(ErrnoMsgShareBuf), errno);
+#else
+        strerror_r(errno, ErrnoMsgShareBuf, sizeof(ErrnoMsgShareBuf));
+#endif
+        msg += "; ERRNO: " + std::string{ErrnoMsgShareBuf};
+    }
+    DLNA_EVENT.fire("Error", (void*)std::string{msg}.c_str());
+}
+}  // namespace pdr
