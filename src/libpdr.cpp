@@ -21,6 +21,8 @@ DLNA::DLNA(const std::string ip, size_t port, const std::string& uuid)
         {uuid, "urn:schemas-upnp-org:service", "RenderingControl:1", location},
         {uuid, "urn:schemas-upnp-org:service", "ConnectionManager:1", location},
     });
+
+    setDeviceInfo("UDN", uuid);
 }
 
 void DLNA::setDeviceInfo(const std::string& key, const std::string& value) {

@@ -136,6 +136,10 @@ public:
 
     static std::string Play(ACTION_PARAMS);
 
+    static std::string Pause(ACTION_PARAMS);
+
+    static std::string Seek(ACTION_PARAMS);
+
 protected:
     static const std::string AVTransport;
 };
@@ -143,6 +147,8 @@ protected:
 class RendererServiceRenderingControl : public RendererService {
 public:
     RendererServiceRenderingControl();
+
+    static std::string SetVolume(ACTION_PARAMS);
 
 protected:
     static const std::string RenderingControl;

@@ -35,7 +35,9 @@ RendererDevice::RendererDevice() {
 
     updateDeviceInfo("Portable DLNA Renderer",
                      "uuid:00000000-0000-0000-0000-000000000000", "libpdr",
-                     "https://github.com/xfangfang/libpbr");
+                     "https://github.com/xfangfang/libpbr",
+                     "Portable DLNA Renderer", "libpdr", "1.0",
+                     "https://github.com/xfangfang/libpbr", "1024");
 
     addService(std::make_shared<RendererServiceAVTransport>());
     addService(std::make_shared<RendererServiceRenderingControl>());

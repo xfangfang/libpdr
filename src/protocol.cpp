@@ -172,6 +172,8 @@ RendererServiceAVTransport::RendererServiceAVTransport()
     functionMap["SetAVTransportURI"] = SetAVTransportURI;
     functionMap["Stop"]              = Stop;
     functionMap["Play"]              = Play;
+    functionMap["Pause"]             = Pause;
+    functionMap["Seek"]              = Seek;
 }
 
 std::string RendererServiceAVTransport::SetAVTransportURI(ACTION_PARAMS) {
@@ -180,9 +182,14 @@ std::string RendererServiceAVTransport::SetAVTransportURI(ACTION_PARAMS) {
     // video/audio link
     GET_VAR(CurrentURI, "CurrentURI");
     DLNA_EVENT.fire("CurrentURI", (void*)CurrentURI->GetText());
+    ((RendererServiceAVTransport*)self)->stateTable["CurrentTrackURI"].value =
+        CurrentURI->GetText();
 
     // title
     GET_VAR(CurrentURIMetaData, "CurrentURIMetaData");
+    ((RendererServiceAVTransport*)self)
+        ->stateTable["CurrentTrackMetaData"]
+        .value = CurrentURIMetaData->GetText();
     tinyxml2::XMLDocument metaData;
     metaData.Parse(CurrentURIMetaData->GetText());
     if (!metaData.Error()) {
@@ -206,10 +213,32 @@ std::string RendererServiceAVTransport::Play(ACTION_PARAMS) {
     return DEFAULT_RES();
 }
 
+std::string RendererServiceAVTransport::Pause(ACTION_PARAMS) {
+    DLNA_EVENT.fire("Pause", nullptr);
+    return DEFAULT_RES();
+}
+
+std::string RendererServiceAVTransport::Seek(ACTION_PARAMS) {
+    PARSE_DATA(data.c_str());
+    GET_VAR(Target, "Target");
+
+    DLNA_EVENT.fire("Seek", (void*)Target->GetText());
+    return DEFAULT_RES();
+}
+
 /// RendererServiceRenderingControl
 
 RendererServiceRenderingControl::RendererServiceRenderingControl()
-    : RendererService("RenderingControl", 1, RenderingControl) {}
+    : RendererService("RenderingControl", 1, RenderingControl) {
+    functionMap["SetVolume"] = SetVolume;
+}
+
+std::string RendererServiceRenderingControl::SetVolume(ACTION_PARAMS) {
+    PARSE_DATA(data.c_str());
+    GET_VAR(Target, "DesiredVolume");
+    DLNA_EVENT.fire("SetVolume", (void*)Target->GetText());
+    return DEFAULT_RES();
+}
 
 /// RendererServiceConnectionManager
 
