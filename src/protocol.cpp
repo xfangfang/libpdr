@@ -196,10 +196,9 @@ std::string RendererServiceAVTransport::SetAVTransportURI(ACTION_PARAMS) {
         auto title = metaData.FirstChildElement("DIDL-Lite")
                          ->FirstChildElement("item")
                          ->FirstChildElement("dc:title");
-        if (title)
+        if (title && title->GetText())
             DLNA_EVENT.fire("CurrentURIMetaData", (void*)title->GetText());
     }
-
     return DEFAULT_RES();
 }
 

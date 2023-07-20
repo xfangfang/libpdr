@@ -51,15 +51,23 @@ struct StateItem {
 
     std::string getValue() {
         switch (type) {
-            case StateType::STRING:
-                return std::get<std::string>(value);
-            case StateType::NUMBER:
-                return std::to_string(std::get<int>(value));
-            case StateType::BOOL:
-                return std::to_string((int)std::get<bool>(value));
-            default:
-                return "";
+            case StateType::STRING: {
+                auto data = std::get_if<std::string>(&value);
+                if (data) return *data;
+                break;
+            }
+            case StateType::NUMBER: {
+                auto data = std::get_if<int>(&value);
+                if (data) return std::to_string(*data);
+                break;
+            }
+            case StateType::BOOL: {
+                auto data = std::get_if<bool>(&value);
+                if (data) return std::to_string(*data);
+                break;
+            }
         }
+        return "";
     }
 
     StateType type;
