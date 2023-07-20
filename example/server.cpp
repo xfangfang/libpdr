@@ -5,12 +5,12 @@
 #include <libpdr.h>
 #include <iostream>
 
-int main(){
+int main() {
     std::cout << "welcome to libpdr example: server" << std::endl;
     std::string command;
 
     // 订阅控制信息
-    pdr::Event::instance().subscribe([](const std::string& event, void* data){
+    DLNA_EVENT.subscribe([](const std::string& event, void* data) {
         if (event == "CurrentURI") {
             printf("%s: %s\n", event.c_str(), (char*)data);
         } else if (event == "Stop") {
@@ -19,15 +19,18 @@ int main(){
     });
 
     // 推送播放器状态
-    double position = 13.0;
-    pdr::Event::instance().fire("Position", &position);
+    std::string msg = "STOPPED";
+    PLAYER_EVENT.fire("TransportState", (void*)msg.c_str());
 
     // 创建 DLNA Renderer
-    pdr::DLNA dlna("192.168.1.206", 8000, "uuid:00000000-0000-0000-0000-000000000000");
+    pdr::DLNA dlna("192.168.1.206", 8000,
+                   "uuid:00000000-0000-0000-0000-000000000000");
     dlna.setDeviceInfo("friendlyName", "Portable DLNA Renderer");
 
     while (true) {
-        std::cout << "Command: start, stop; Enter a command (or 'q' to quit): " << std::endl << "pdr_shell $ ";
+        std::cout << "Command: start, stop; Enter a command (or 'q' to quit): "
+                  << std::endl
+                  << "pdr_shell $ ";
 
         std::getline(std::cin, command);
         if (command == "q") break;

@@ -17,9 +17,8 @@ typedef std::function<void(std::string, void*)> pdrEvent;
 typedef std::list<pdrEvent> CallbacksList;
 typedef CallbacksList::iterator Subscription;
 
-extern char ErrnoMsgShareBuf[256];
-
-#define DLNA_EVENT pdr::Event::instance()
+#define DLNA_EVENT pdr::Event::dlnaEvent()
+#define PLAYER_EVENT pdr::Event::playerEvent()
 #define DLNA_ERROR(m) Event::showError(m)
 
 class Event {
@@ -30,7 +29,9 @@ public:
 
     void fire(std::string event, void* data);
 
-    static Event& instance();
+    static Event& dlnaEvent();
+
+    static Event& playerEvent();
 
     static void showError(std::string msg, bool withErrno = true);
 
@@ -39,6 +40,50 @@ private:
 };
 
 /// Protocol
+
+enum StateType { STRING, NUMBER, BOOL };
+
+struct StateItem {
+    StateItem() = default;
+    StateItem(StateType type, const std::string& name, bool sendEvents)
+        : type(type), name(name), sendEvents(sendEvents) {}
+
+    std::string getValue() {
+        switch (type) {
+            case StateType::STRING:
+                return std::get<std::string>(value);
+            case StateType::NUMBER:
+                return std::to_string(std::get<int>(value));
+            case StateType::BOOL:
+                return std::to_string((int)std::get<bool>(value));
+            default:
+                return "";
+        }
+    }
+
+    StateType type;
+    std::string name;
+    bool sendEvents;
+    std::variant<std::string, int, unsigned int, bool> value;
+};
+
+struct ActionArgumentItem {
+    ActionArgumentItem() = default;
+    ActionArgumentItem(const std::string& name, const std::string& state)
+        : name(name), state(state){};
+    std::string name;
+    std::string state;
+};
+
+struct ActionItem {
+    ActionItem() = default;
+    ActionItem(const std::string& name, std::vector<ActionArgumentItem> in,
+               std::vector<ActionArgumentItem> out)
+        : name(name), inList(std::move(in)), outList(std::move(out)){};
+    std::string name;
+    std::vector<ActionArgumentItem> inList;
+    std::vector<ActionArgumentItem> outList;
+};
 
 #define ACTION_PARAMS \
     RendererService *self, const std::string &action, const std::string &data
@@ -49,17 +94,24 @@ public:
     RendererService(const std::string& name, int version,
                     const std::string& xml);
 
+    virtual ~RendererService();
+
     std::string getString();
 
     int getVersion() const;
 
     std::string getName() const;
 
-    std::string request(const std::string& name, const std::string& action,
+    std::string request(const std::string& service, const std::string& action,
                         const std::string& data);
 
-    static std::string dummyRequest(const std::string& name,
+    static std::string dummyRequest(RendererService* self,
+                                    const std::string& name,
                                     const std::string& action);
+
+    static std::string generateXMLResponse(
+        const std::string& service, const std::string& action,
+        const std::unordered_map<std::string, std::string>& res);
 
 protected:
     std::string name;
@@ -69,10 +121,9 @@ protected:
         std::string,
         std::function<std::string(RendererService*, std::string, std::string)>>
         functionMap;
-
-    static std::string generateXMLResponse(
-        const std::string& service, const std::string& action,
-        const std::unordered_map<std::string, std::string>& res);
+    std::unordered_map<std::string, StateItem> stateTable;
+    std::unordered_map<std::string, ActionItem> actionTable;
+    pdr::Subscription eventSubscribeID;
 };
 
 class RendererServiceAVTransport : public RendererService {
@@ -84,10 +135,6 @@ public:
     static std::string Stop(ACTION_PARAMS);
 
     static std::string Play(ACTION_PARAMS);
-
-    static std::string GetTransportInfo(ACTION_PARAMS);
-
-    static std::string GetPositionInfo(ACTION_PARAMS);
 
 protected:
     static const std::string AVTransport;

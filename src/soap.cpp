@@ -135,9 +135,11 @@ RendererDevice::getServiceList() {
 std::string RendererDevice::parseRequest(const std::string& service,
                                          const std::string& action,
                                          const std::string& data) {
-    if (serviceMap.count(service) == 0)
-        return RendererService::dummyRequest(service, action);
-    return serviceMap[service]->request(action, service, data);
+    if (serviceMap.count(service) == 0) {
+        MG_ERROR(("Unknown service: %s/%s", service.c_str(), action.c_str()));
+        return RendererService::generateXMLResponse(service, action, {});
+    }
+    return serviceMap[service]->request(service, action, data);
 }
 
 /// SOAP
@@ -216,13 +218,17 @@ void SOAP::fn(struct mg_connection* c, int ev, void* ev_data, void* fn_data) {
                 }
             }
         } else if (mg_vcasecmp(&hm->method, "POST") == 0) {
-            std::string service, action;
-            parsePostAction(hm, service, action);
-            auto res = soap->device.parseRequest(
-                service, action, std::string{hm->body.ptr, hm->body.len});
-            if (!res.empty()) {
-                mg_http_reply(c, 200, XML_HEADER, res.c_str());
-                return;
+            try {
+                std::string service, action;
+                parsePostAction(hm, service, action);
+                auto res = soap->device.parseRequest(
+                    service, action, std::string{hm->body.ptr, hm->body.len});
+                if (!res.empty()) {
+                    mg_http_reply(c, 200, XML_HEADER, res.c_str());
+                    return;
+                }
+            } catch (const std::exception& ex) {
+                MG_ERROR(("unknown post request"));
             }
         }
         mg_http_reply(c, 404, "", "HTTP 404");

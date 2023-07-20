@@ -57,7 +57,12 @@ void Event::fire(std::string event, void* data) {
     }
 }
 
-Event& Event::instance() {
+Event& Event::dlnaEvent() {
+    static Event instance;
+    return instance;
+}
+
+Event& Event::playerEvent() {
     static Event instance;
     return instance;
 }

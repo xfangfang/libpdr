@@ -11,41 +11,114 @@ namespace pdr {
                     ->FirstChildElement(std::string{"u:" + action}.c_str())
 #define GET_VAR(var, key) \
     tinyxml2::XMLElement* var = root->FirstChildElement(key)
-#define DEFAULT_RES() \
-    generateXMLResponse(self->getName(), action, {{"InstanceID", "0"}})
+#define DEFAULT_RES() generateXMLResponse(self->getName(), action, {})
 
 RendererService::RendererService(const std::string& name, int version,
                                  const std::string& xml)
     : name(name), version(version) {
     doc.Parse(xml.c_str());
-    //        auto scpd = doc.FirstChildElement("scpd");
-    //        auto actionList = scpd->FirstChildElement("actionList");
-    //        for (auto item = actionList->FirstChildElement("action"); item; item = item->NextSiblingElement("action")) {
-    //            std::string name = item->FirstChildElement("name")->GetText();
-    //            auto argumentList = item->FirstChildElement("argumentList");
-    //            for (auto argument = argumentList->FirstChildElement("argument"); argument; argument = argument->NextSiblingElement("argument")) {
-    //
-    //            }
-    //        }
-    //        printf("%s\n", getString());
+    auto scpd = doc.FirstChildElement("scpd");
+
+    // 解析 Action 列表
+    auto actionList = scpd->FirstChildElement("actionList");
+    for (auto item = actionList->FirstChildElement("action"); item;
+         item      = item->NextSiblingElement("action")) {
+        std::string actionName = item->FirstChildElement("name")->GetText();
+        std::vector<ActionArgumentItem> inList;
+        std::vector<ActionArgumentItem> outList;
+        auto argumentList = item->FirstChildElement("argumentList");
+        for (auto argument      = argumentList->FirstChildElement("argument");
+             argument; argument = argument->NextSiblingElement("argument")) {
+            std::string argumentName =
+                argument->FirstChildElement("name")->GetText();
+            std::string direction =
+                argument->FirstChildElement("direction")->GetText();
+            std::string state =
+                argument->FirstChildElement("relatedStateVariable")->GetText();
+            if (direction == "in") {
+                inList.emplace_back(argumentName, state);
+            } else {
+                outList.emplace_back(argumentName, state);
+            }
+        }
+        actionTable[actionName] = {actionName, inList, outList};
+    }
+
+    // 解析 State 表
+    auto serviceStateTable = scpd->FirstChildElement("serviceStateTable");
+    for (auto item  = serviceStateTable->FirstChildElement("stateVariable");
+         item; item = item->NextSiblingElement("stateVariable")) {
+        bool eventSending     = item->Attribute("sendEvents", "yes");
+        std::string dataType  = item->FirstChildElement("dataType")->GetText();
+        std::string stateName = item->FirstChildElement("name")->GetText();
+        if (dataType == "string") {
+            stateTable[stateName]    = {StateType::STRING, stateName,
+                                        eventSending};
+            auto defaultValueElement = item->FirstChildElement("defaultValue");
+            if (defaultValueElement)
+                stateTable[stateName].value = defaultValueElement->GetText();
+        } else if (dataType == "ui4" || dataType == "ui2" || dataType == "i4" ||
+                   dataType == "i2") {
+            stateTable[stateName]       = {StateType::NUMBER, stateName,
+                                           eventSending};
+            stateTable[stateName].value = 0;
+        } else if (dataType == "boolean") {
+            stateTable[stateName] = {StateType::BOOL, stateName, eventSending};
+            stateTable[stateName].value = false;
+        } else {
+            printf("Find unsupported type: %s\n", dataType.c_str());
+        }
+    }
+
+    // 设置播放器状态
+    eventSubscribeID =
+        PLAYER_EVENT.subscribe([this](const std::string& event, void* data) {
+            if (stateTable.count(event) == 0) return;
+            auto& stateItem = stateTable[event];
+            switch (stateItem.type) {
+                case StateType::STRING:
+                    stateItem.value = std::string{(char*)data};
+                    break;
+                case StateType::NUMBER:
+                    stateItem.value = *static_cast<int*>(data);
+                    break;
+                case StateType::BOOL:
+                    stateItem.value = *static_cast<bool*>(data);
+                    break;
+            }
+        });
+}
+
+RendererService::~RendererService() {
+    PLAYER_EVENT.unsubscribe(eventSubscribeID);
 }
 
 int RendererService::getVersion() const { return version; }
 
 std::string RendererService::getName() const { return name; }
 
-std::string RendererService::request(const std::string& name,
+std::string RendererService::request(const std::string& service,
                                      const std::string& action,
                                      const std::string& data) {
-    if (functionMap.count(name) == 0) {
-        return RendererService::dummyRequest(name, action);
+    if (functionMap.count(action) == 0) {
+        return RendererService::dummyRequest(this, service, action);
     }
-    return functionMap[name](this, name, data);
+    return functionMap[action](this, action, data);
 }
 
-std::string RendererService::dummyRequest(const std::string& name,
-                                          const std::string& action) {
-    return generateXMLResponse(name, action, {{"InstanceID", "0"}});
+std::string RendererService::dummyRequest(RendererService* self,
+                                          const std::string& name,
+                                          const std::string& actionName) {
+    if (self->actionTable.count(actionName) == 0) {
+        return generateXMLResponse(name, actionName, {});
+    }
+
+    auto& action = self->actionTable[actionName];
+    std::unordered_map<std::string, std::string> res;
+    for (auto& arg : action.outList) {
+        res[arg.name] = self->stateTable[arg.state].getValue();
+    }
+    return generateXMLResponse(name, actionName, res);
 }
 
 std::string RendererService::getString() {
@@ -73,7 +146,7 @@ std::string RendererService::generateXMLResponse(
     // 创建Response元素
     std::string namespaceURI = "urn:schemas-upnp-org:service:" + service + ":1";
     tinyxml2::XMLElement* response = doc.NewElement(namespaceURI.c_str());
-    response->SetName((action + "Response").c_str());
+    response->SetName(("u:" + action + "Response").c_str());
     response->SetAttribute("xmlns:u", namespaceURI.c_str());
     body->InsertEndChild(response);
 
@@ -99,8 +172,6 @@ RendererServiceAVTransport::RendererServiceAVTransport()
     functionMap["SetAVTransportURI"] = SetAVTransportURI;
     functionMap["Stop"]              = Stop;
     functionMap["Play"]              = Play;
-    functionMap["GetTransportInfo"]  = GetTransportInfo;
-    functionMap["GetPositionInfo"]   = GetPositionInfo;
 }
 
 std::string RendererServiceAVTransport::SetAVTransportURI(ACTION_PARAMS) {
@@ -126,20 +197,12 @@ std::string RendererServiceAVTransport::SetAVTransportURI(ACTION_PARAMS) {
 }
 
 std::string RendererServiceAVTransport::Stop(ACTION_PARAMS) {
-    Event::instance().fire("Stop", nullptr);
+    DLNA_EVENT.fire("Stop", nullptr);
     return DEFAULT_RES();
 }
 
 std::string RendererServiceAVTransport::Play(ACTION_PARAMS) {
-    Event::instance().fire("Play", nullptr);
-    return DEFAULT_RES();
-}
-
-std::string RendererServiceAVTransport::GetTransportInfo(ACTION_PARAMS) {
-    return DEFAULT_RES();
-}
-
-std::string RendererServiceAVTransport::GetPositionInfo(ACTION_PARAMS) {
+    DLNA_EVENT.fire("Play", nullptr);
     return DEFAULT_RES();
 }
 
