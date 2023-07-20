@@ -282,12 +282,16 @@ public:
 
     void stop(bool wait = false);
 
+    void sendNotify(const std::string& NTS);
+
     ~SSDP();
 
 protected:
     std::thread ssdpThread;
     bool running = false;
     SSDPServiceMap services;
+    struct mg_connection* connection = nullptr;  // listen on: 0.0.0.0:1900
+    struct mg_connection* notifyConnection = nullptr;
 };
 
 /// DLNA

@@ -67,6 +67,38 @@ void SSDP::fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
     }
 }
 
+static void tfn(void *param) {
+    MG_INFO(("Sending SSDP NOTIFY: ssdp:alive"));
+    auto ssdp = static_cast<SSDP *>(param);
+    ssdp->sendNotify("ssdp:alive");
+}
+
+void SSDP::sendNotify(const std::string &NTS) {
+    if (notifyConnection == nullptr) return;
+    char buf[512];
+    for (auto &service : getServices()) {
+        snprintf(buf, sizeof(buf),
+                 "NOTIFY * HTTP/1.1\r\n"
+                 "HOST: 239.255.255.250:1900\r\n"
+                 "NTS: %s\r\n"
+                 "USN: %s\r\n"
+                 "NT: %s\r\n"
+                 "LOCATION: %s\r\n"
+                 "EXT:\r\n"
+                 "SERVER: %s\r\n"
+                 "CACHE-CONTROL: %s\r\n"
+                 "\r\n",
+                 NTS.c_str(), service.second.getUSN().c_str(),
+                 service.second.getST().c_str(),
+                 service.second.location.c_str(),
+                 service.second.serverName.c_str(),
+                 service.second.cacheControl.c_str());
+
+        mg_send(notifyConnection, buf, strlen(buf));
+        mg_send(notifyConnection, buf, strlen(buf));
+    }
+}
+
 void SSDP::registerServices(const SSDPServiceList &service) {
     for (auto &s : service) services[s.getUSN()] = s;
 }
@@ -77,11 +109,10 @@ void SSDP::start(const std::string &url) {
     running    = true;
     ssdpThread = std::thread([this, url]() {
         struct mg_mgr mgr {};
-        static struct mg_connection *c;
         mg_mgr_init(&mgr);
-        c = mg_listen(&mgr, url.c_str(), fn, this);
+        connection = mg_listen(&mgr, url.c_str(), fn, this);
 
-        if (!c) {
+        if (!connection) {
             mg_mgr_free(&mgr);
             DLNA_ERROR("SSDP: Cannot listen to: " + url);
             return;
@@ -91,15 +122,37 @@ void SSDP::start(const std::string &url) {
         struct ip_mreq mreq {};
         mreq.imr_multiaddr.s_addr = inet_addr(SSDP_MULTICAST_ADDR);
         mreq.imr_interface.s_addr = htonl(INADDR_ANY);
-        if (setsockopt(FD(c), IPPROTO_IP, IP_ADD_MEMBERSHIP,
+        if (setsockopt(FD(connection), IPPROTO_IP, IP_ADD_MEMBERSHIP,
                        reinterpret_cast<const char *>(&mreq),
                        sizeof(mreq)) < 0) {
             mg_mgr_free(&mgr);
             DLNA_ERROR("SSDP: Cannot join to multicast group");
             return;
         }
+
+        notifyConnection =
+            mg_connect(&mgr, "udp://239.255.255.250:1900", nullptr, nullptr);
+        if (setsockopt(FD(notifyConnection), IPPROTO_IP, IP_ADD_MEMBERSHIP,
+                       reinterpret_cast<const char *>(&mreq),
+                       sizeof(mreq)) < 0) {
+            DLNA_ERROR("SSDP: notify socket Cannot join to multicast group");
+        }
+
+        // 定时发布服务
+        mg_timer_add(&mgr, 3000, MG_TIMER_REPEAT | MG_TIMER_RUN_NOW, tfn, this);
+
         while (running) mg_mgr_poll(&mgr, 200);
+        sendNotify("ssdp:byebye");
+
+        // 移除组播
+        setsockopt(FD(connection), IPPROTO_IP, IP_DROP_MEMBERSHIP,
+                   (char *)&mreq, sizeof(mreq));
+        setsockopt(FD(notifyConnection), IPPROTO_IP, IP_DROP_MEMBERSHIP,
+                   (char *)&mreq, sizeof(mreq));
+
         mg_mgr_free(&mgr);
+        connection       = nullptr;
+        notifyConnection = nullptr;
     });
 }
 
