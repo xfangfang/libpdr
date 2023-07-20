@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <functional>
 #include <memory>
+#include <variant>
 
 #include <tinyxml2.h>
 
