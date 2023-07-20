@@ -91,7 +91,11 @@ std::string gmtTime() {
     std::time_t currentTimeT =
         std::chrono::system_clock::to_time_t(currentTime);
     std::tm timeInfo{};
+#ifdef _WIN32
+    gmtime_s(&timeInfo, &currentTimeT);
+#else
     gmtime_r(&currentTimeT, &timeInfo);
+#endif
     std::stringstream ss;
     ss << std::put_time(&timeInfo, "%a, %d %b %Y %H:%M:%S GMT");
     return ss.str();
