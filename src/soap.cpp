@@ -5,7 +5,13 @@
 
 namespace pdr {
 
-#define XML_HEADER "Content-Type: text/xml; charset=utf-8\r\nServer: libpdr\r\n"
+static std::string xmlHeader() {
+    return "Content-Type: text/xml;charset=utf-8\r\n"
+           "Server: System/1.0 UPnP/1.0 libpdr/1.0\r\n"
+           "Allow: GET, HEAD, POST, SUBSCRIBE, UNSUBSCRIBE\r\n"
+           "Date: " +
+           gmtTime() + "\r\n";
+}
 
 const std::string descriptionXML = R"xml(<?xml version="1.0" encoding="UTF-8"?>
 <root
@@ -50,15 +56,15 @@ void RendererDevice::updateDeviceInfo(
     const std::string& modelDesc, const std::string& modelName,
     const std::string& modelNumber, const std::string& modelUrl,
     const std::string& serialNum) {
-    setDeviceInfo("manufacturer", manufacturer);
-    setDeviceInfo("manufacturerURL", manufacturerUrl);
-    setDeviceInfo("modelDescription", modelDesc);
-    setDeviceInfo("modelName", modelName);
-    setDeviceInfo("modelNumber", modelNumber);
-    setDeviceInfo("modelURL", modelUrl);
     setDeviceInfo("serialNumber", serialNum);
-    setDeviceInfo("UDN", uuid);
+    setDeviceInfo("modelURL", modelUrl);
+    setDeviceInfo("modelNumber", modelNumber);
+    setDeviceInfo("modelName", modelName);
+    setDeviceInfo("modelDescription", modelDesc);
+    setDeviceInfo("manufacturerURL", manufacturerUrl);
+    setDeviceInfo("manufacturer", manufacturer);
     setDeviceInfo("friendlyName", name);
+    setDeviceInfo("UDN", uuid);
 }
 
 void RendererDevice::setDeviceInfo(const std::string& key,
@@ -204,18 +210,17 @@ void SOAP::fn(struct mg_connection* c, int ev, void* ev_data, void* fn_data) {
         printHeader(hm);
         if (mg_vcasecmp(&hm->method, "GET") == 0) {
             if (mg_strcmp(hm->uri, MG_C_STR("/")) == 0) {
-                mg_http_reply(c, 200, "", "Portable DLNA Renderer");
+                return mg_http_reply(c, 200, "", "Portable DLNA Renderer");
             } else if (mg_strcmp(hm->uri, MG_C_STR("/description.xml")) == 0) {
-                mg_http_reply(c, 200, XML_HEADER,
-                              soap->device.getString().c_str());
+                return mg_http_reply(c, 200, xmlHeader().c_str(),
+                                     soap->device.getString().c_str());
             } else {
                 for (auto& service : soap->device.getServiceList()) {
                     std::string link = "/" + service.first + ".xml";
                     if (mg_vcmp(&hm->uri, link.c_str()) == 0) {
-                        mg_http_reply(
-                            c, 200, XML_HEADER,
+                        return mg_http_reply(
+                            c, 200, xmlHeader().c_str(),
                             soap->device.getString(service.first).c_str());
-                        return;
                     }
                 }
             }
@@ -226,8 +231,8 @@ void SOAP::fn(struct mg_connection* c, int ev, void* ev_data, void* fn_data) {
                 auto res = soap->device.parseRequest(
                     service, action, std::string{hm->body.ptr, hm->body.len});
                 if (!res.empty()) {
-                    mg_http_reply(c, 200, XML_HEADER, res.c_str());
-                    return;
+                    return mg_http_reply(c, 200, xmlHeader().c_str(),
+                                         res.c_str());
                 }
             } catch (const std::exception& ex) {
                 MG_ERROR(("unknown post request"));

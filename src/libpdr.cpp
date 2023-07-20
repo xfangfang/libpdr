@@ -1,4 +1,7 @@
 
+#include <iomanip>
+#include <chrono>
+#include <sstream>
 #include <stdexcept>
 #include "libpdr.h"
 
@@ -80,5 +83,17 @@ void Event::showError(std::string msg, bool withErrno) {
         msg += "; ERRNO: " + std::string{ErrnoMsgShareBuf};
     }
     DLNA_EVENT.fire("Error", (void*)std::string{msg}.c_str());
+}
+
+/// Utils
+std::string gmtTime() {
+    auto currentTime = std::chrono::system_clock::now();
+    std::time_t currentTimeT =
+        std::chrono::system_clock::to_time_t(currentTime);
+    std::tm timeInfo{};
+    gmtime_r(&currentTimeT, &timeInfo);
+    std::stringstream ss;
+    ss << std::put_time(&timeInfo, "%a, %d %b %Y %H:%M:%S GMT");
+    return ss.str();
 }
 }  // namespace pdr

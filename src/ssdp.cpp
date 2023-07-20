@@ -50,16 +50,17 @@ void SSDP::fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
                           "USN: %s\r\n"
                           "ST: %s\r\n"
                           "LOCATION: %s\r\n"
-                          "EXT: \r\n"
+                          "EXT:\r\n"
                           "SERVER: %s\r\n"
                           "CACHE-CONTROL: %s\r\n"
-                          "DATE: \r\n"
+                          "DATE: %s\r\n"
                           "\r\n",
                           service.second.getUSN().c_str(),
                           service.second.getST().c_str(),
                           service.second.location.c_str(),
                           service.second.serverName.c_str(),
-                          service.second.cacheControl.c_str());
+                          service.second.cacheControl.c_str(),
+                          gmtTime().c_str());
                 break;
             }
         }

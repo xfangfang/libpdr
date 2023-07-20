@@ -12,6 +12,10 @@
 #include <tinyxml2.h>
 
 namespace pdr {
+/// Utils
+
+std::string gmtTime();
+
 /// Event
 
 typedef std::function<void(std::string, void*)> pdrEvent;
@@ -258,7 +262,7 @@ public:
     }
 
     std::string uuid, scope, name;
-    std::string location, serverName = "libpdr/1.0",
+    std::string location, serverName = "System/1.0 UPnP/1.0 libpdr/1.0",
                           cacheControl = "max-age=1800";
 };
 
