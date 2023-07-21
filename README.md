@@ -3,7 +3,7 @@
 Adding DLNA renderer to your project in just a few lines of code.
 
 ```c++
-pdr::Event::instance().subscribe([](const std::string& event, void* data){
+DLNA_EVENT.subscribe([](const std::string& event, void* data){
     if (event == "CurrentURI") {
         printf("%s: %s\n", event.c_str(), (char*)data);
     } else if (event == "Stop") {
@@ -18,3 +18,6 @@ dlna.setDeviceInfo("friendlyName", "Portable DLNA Renderer");
 
 dlna.start();
 ```
+
+For more information, please refer to my
+project: [wiliwili/activity/dlna_activity.cpp](https://github.com/xfangfang/wiliwili/blob/dev/wiliwili/source/activity/dlna_activity.cpp)

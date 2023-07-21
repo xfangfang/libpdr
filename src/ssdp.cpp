@@ -68,13 +68,13 @@ void SSDP::fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
 }
 
 static void tfn(void *param) {
-    MG_INFO(("Sending SSDP NOTIFY: ssdp:alive"));
     auto ssdp = static_cast<SSDP *>(param);
     ssdp->sendNotify("ssdp:alive");
 }
 
 void SSDP::sendNotify(const std::string &NTS) {
     if (notifyConnection == nullptr) return;
+    MG_INFO(("Sending SSDP NOTIFY: %s", NTS.c_str()));
     char buf[512];
     for (auto &service : getServices()) {
         snprintf(buf, sizeof(buf),

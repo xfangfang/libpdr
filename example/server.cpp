@@ -5,9 +5,27 @@
 #include <libpdr.h>
 #include <iostream>
 
+bool getIPAndPort(std::string& ip, int& port) {
+    std::cout << "Input server ip: ";
+    std::getline(std::cin, ip);
+    std::cout << "Input server port: ";
+    std::cin >> port;
+    if (std::cin.fail()) {
+        std::cout << "Invalid port" << std::endl;
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        return false;
+    }
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    return true;
+}
+
 int main() {
     std::cout << "welcome to libpdr example: server" << std::endl;
-    std::string command;
+    std::string command, ip;
+    int port;
+    while (!getIPAndPort(ip, port))
+        ;
 
     // 订阅控制信息
     DLNA_EVENT.subscribe([](const std::string& event, void* data) {
@@ -15,6 +33,8 @@ int main() {
             printf("%s: %s\n", event.c_str(), (char*)data);
         } else if (event == "Stop") {
             printf("Stop\n");
+        } else if (event == "Error") {
+            printf("Error: %s\n", std::string{(const char*)data}.c_str());
         }
     });
 
@@ -23,25 +43,19 @@ int main() {
     PLAYER_EVENT.fire("TransportState", (void*)msg.c_str());
 
     // 创建 DLNA Renderer
-    pdr::DLNA dlna("192.168.1.206", 8000,
-                   "uuid:00000000-0000-0000-0000-000000000000");
+    pdr::DLNA dlna(ip, 8000, "uuid:00000000-0000-0000-0000-000000000000");
     dlna.setDeviceInfo("friendlyName", "Portable DLNA Renderer");
+    dlna.start();
+    std::cout << "========= DLNA Media Renderer started =========" << std::endl;
+    std::cout << "SOAP: http://0.0.0.0:" << port << std::endl;
+    std::cout << "SSDP: udp://0.0.0.0:1900"
+              << " (DLNA: " << ip << ":" << port << ")" << std::endl;
 
     while (true) {
-        std::cout << "Command: start, stop; Enter a command (or 'q' to quit): "
-                  << std::endl
-                  << "pdr_shell $ ";
-
+        std::cout << "========= Enter 'q' to quit =========" << std::endl;
         std::getline(std::cin, command);
         if (command == "q") break;
-
-        std::cout << "Executing command: " << command << std::endl;
-        if (command == "start") {
-            dlna.start();
-        } else if (command == "stop") {
-            dlna.stop();
-        }
     }
-
+    dlna.stop();
     return 0;
 }
