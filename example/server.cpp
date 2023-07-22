@@ -34,7 +34,7 @@ int main() {
         } else if (event == "Stop") {
             printf("Stop\n");
         } else if (event == "Error") {
-            printf("Error: %s\n", std::string{(const char*)data}.c_str());
+            printf("Error: %s\n", (char*)data);
         }
     });
 

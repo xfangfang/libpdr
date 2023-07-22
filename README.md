@@ -9,7 +9,7 @@ DLNA_EVENT.subscribe([](const std::string& event, void* data){
     } else if (event == "Stop") {
         printf("Stop\n");
     } else if (event == "Error") {
-        printf("Error: %s\n", std::string{(const char*)data}.c_str());
+        printf("Error: %s\n", (char*)data);
     }
 });
 
