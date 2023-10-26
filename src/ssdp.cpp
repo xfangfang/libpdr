@@ -9,7 +9,7 @@
 
 namespace pdr {
 
-static inline std::string ip2broadcastAddr(const std::string& ip) {
+static inline std::string ip2broadcastAddr(const std::string &ip) {
     if (ip.empty()) return SSDP_MULTICAST_ADDR;
     size_t lastDotPos = ip.find_last_of('.');
     if (lastDotPos != std::string::npos) {
@@ -173,7 +173,8 @@ void SSDP::start(const std::string &url) {
             notifyConnection = mg_connect(&mgr, addr.c_str(), nullptr, nullptr);
             int broadcastEnable = 1;
             if (setsockopt(FD(notifyConnection), SOL_SOCKET, SO_BROADCAST,
-                           &broadcastEnable, sizeof(broadcastEnable)) < 0) {
+                           reinterpret_cast<const char *>(&broadcastEnable),
+                           sizeof(broadcastEnable)) < 0) {
                 DLNA_ERROR("SSDP: socket cannot broadcast");
                 mg_mgr_free(&mgr);
                 return;
