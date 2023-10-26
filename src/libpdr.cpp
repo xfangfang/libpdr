@@ -7,7 +7,7 @@
 
 namespace pdr {
 
-DLNA::DLNA(const std::string ip, size_t port, const std::string& uuid)
+DLNA::DLNA(const std::string& ip, size_t port, const std::string& uuid)
     : uuid(uuid), port(port) {
     SSDPServiceList services;
 
@@ -16,13 +16,15 @@ DLNA::DLNA(const std::string ip, size_t port, const std::string& uuid)
              (int)port);
     std::string location{temp};
 
+    ssdp.setIP(ip);
+
     ssdp.registerServices({
-        {uuid, "upnp:rootdevice", "", location},
-        {uuid, "", "", location},
-        {uuid, "urn:schemas-upnp-org:device", "MediaRenderer:1", location},
-        {uuid, "urn:schemas-upnp-org:service", "AVTransport:1", location},
-        {uuid, "urn:schemas-upnp-org:service", "RenderingControl:1", location},
-        {uuid, "urn:schemas-upnp-org:service", "ConnectionManager:1", location},
+        {uuid, "upnp:rootdevice", "", location, ip},
+        {uuid, "", "", location, ip},
+        {uuid, "urn:schemas-upnp-org:device", "MediaRenderer:1", location, ip},
+        {uuid, "urn:schemas-upnp-org:service", "AVTransport:1", location, ip},
+        {uuid, "urn:schemas-upnp-org:service", "RenderingControl:1", location, ip},
+        {uuid, "urn:schemas-upnp-org:service", "ConnectionManager:1", location, ip},
     });
 
     setDeviceInfo("UDN", uuid);

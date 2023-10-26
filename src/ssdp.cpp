@@ -9,9 +9,35 @@
 
 namespace pdr {
 
-SSDPService::SSDPService(const std::string uuid, const std::string &scope,
-                         const std::string &name, const std::string &location)
-    : uuid(uuid), scope(scope), name(name), location(location) {}
+static inline std::string ip2broadcastAddr(const std::string& ip) {
+    if (ip.empty()) return SSDP_MULTICAST_ADDR;
+    size_t lastDotPos = ip.find_last_of('.');
+    if (lastDotPos != std::string::npos) {
+        return ip.substr(0, lastDotPos + 1) + "255";
+    }
+    return SSDP_MULTICAST_ADDR;
+}
+
+SSDPService::SSDPService(const std::string &uuid, const std::string &scope,
+                         const std::string &name, const std::string &location,
+                         const std::string &ip)
+    : ip(ip), uuid(uuid), scope(scope), name(name), location(location) {}
+
+std::string SSDPService::getST() const {
+    if (scope.empty() && name.empty()) return uuid;
+    if (name.empty()) return scope;
+    return scope + ":" + name;
+}
+
+std::string SSDPService::getUSN() const {
+    if (scope.empty()) return uuid;
+    if (name.empty()) return uuid + "::" + scope;
+    return uuid + "::" + scope + ":" + name;
+}
+
+std::string SSDPService::getBroadcastAddr() const {
+    return ip2broadcastAddr(ip);
+}
 
 void SSDP::fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
     MG_DEBUG(("%p got event: %d %p %p", c, ev, ev_data, fn_data));
@@ -76,10 +102,11 @@ void SSDP::sendNotify(const std::string &NTS) {
     if (notifyConnection == nullptr) return;
     MG_INFO(("Sending SSDP NOTIFY: %s", NTS.c_str()));
     char buf[512];
-    for (auto &service : getServices()) {
+    for (auto &s : getServices()) {
+        auto &service = s.second;
         snprintf(buf, sizeof(buf),
                  "NOTIFY * HTTP/1.1\r\n"
-                 "HOST: 239.255.255.250:1900\r\n"
+                 "HOST: %s:1900\r\n"
                  "NTS: %s\r\n"
                  "USN: %s\r\n"
                  "NT: %s\r\n"
@@ -88,11 +115,11 @@ void SSDP::sendNotify(const std::string &NTS) {
                  "SERVER: %s\r\n"
                  "CACHE-CONTROL: %s\r\n"
                  "\r\n",
-                 NTS.c_str(), service.second.getUSN().c_str(),
-                 service.second.getST().c_str(),
-                 service.second.location.c_str(),
-                 service.second.serverName.c_str(),
-                 service.second.cacheControl.c_str());
+                 sendBroadcast ? service.getBroadcastAddr().c_str()
+                               : SSDP_MULTICAST_ADDR,
+                 NTS.c_str(), service.getUSN().c_str(), service.getST().c_str(),
+                 service.location.c_str(), service.serverName.c_str(),
+                 service.cacheControl.c_str());
 
         mg_send(notifyConnection, buf, strlen(buf));
         mg_send(notifyConnection, buf, strlen(buf));
@@ -109,6 +136,7 @@ void SSDP::start(const std::string &url) {
     running    = true;
     ssdpThread = std::thread([this, url]() {
         struct mg_mgr mgr {};
+        bool server_socket_multicast = true, notify_socket_multicast = true;
         mg_mgr_init(&mgr);
         connection = mg_listen(&mgr, url.c_str(), fn, this);
 
@@ -125,9 +153,8 @@ void SSDP::start(const std::string &url) {
         if (setsockopt(FD(connection), IPPROTO_IP, IP_ADD_MEMBERSHIP,
                        reinterpret_cast<const char *>(&mreq),
                        sizeof(mreq)) < 0) {
-            mg_mgr_free(&mgr);
-            DLNA_ERROR("SSDP: Cannot join to multicast group");
-            return;
+            MG_ERROR(("SSDP: server socket cannot join to multicast group"));
+            server_socket_multicast = false;
         }
 
         notifyConnection =
@@ -135,7 +162,23 @@ void SSDP::start(const std::string &url) {
         if (setsockopt(FD(notifyConnection), IPPROTO_IP, IP_ADD_MEMBERSHIP,
                        reinterpret_cast<const char *>(&mreq),
                        sizeof(mreq)) < 0) {
-            DLNA_ERROR("SSDP: notify socket Cannot join to multicast group");
+            MG_ERROR(("SSDP: notify socket cannot join to multicast group"));
+            notify_socket_multicast = false;
+        }
+
+        // 组播加入失败时，使用广播
+        // todo: 在使用 arm macOS 开热点时，热点下的设备无法接收到SSDP组播，这个时候也可以同时使用广播
+        if (!notify_socket_multicast) {
+            std::string addr = "udp://" + ip2broadcastAddr(ip) + ":1900";
+            notifyConnection = mg_connect(&mgr, addr.c_str(), nullptr, nullptr);
+            int broadcastEnable = 1;
+            if (setsockopt(FD(notifyConnection), SOL_SOCKET, SO_BROADCAST,
+                           &broadcastEnable, sizeof(broadcastEnable)) < 0) {
+                DLNA_ERROR("SSDP: socket cannot broadcast");
+                mg_mgr_free(&mgr);
+                return;
+            }
+            sendBroadcast = true;
         }
 
         // 定时发布服务
@@ -145,10 +188,12 @@ void SSDP::start(const std::string &url) {
         sendNotify("ssdp:byebye");
 
         // 移除组播
-        setsockopt(FD(connection), IPPROTO_IP, IP_DROP_MEMBERSHIP,
-                   (char *)&mreq, sizeof(mreq));
-        setsockopt(FD(notifyConnection), IPPROTO_IP, IP_DROP_MEMBERSHIP,
-                   (char *)&mreq, sizeof(mreq));
+        if (server_socket_multicast)
+            setsockopt(FD(connection), IPPROTO_IP, IP_DROP_MEMBERSHIP,
+                       (char *)&mreq, sizeof(mreq));
+        if (notify_socket_multicast)
+            setsockopt(FD(notifyConnection), IPPROTO_IP, IP_DROP_MEMBERSHIP,
+                       (char *)&mreq, sizeof(mreq));
 
         mg_mgr_free(&mgr);
         connection       = nullptr;
@@ -162,6 +207,8 @@ void SSDP::stop(bool wait) {
         ssdpThread.join();
     }
 }
+
+void SSDP::setIP(const std::string &value) { this->ip = value; }
 
 SSDP::~SSDP() { stop(true); }
 

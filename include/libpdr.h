@@ -246,24 +246,21 @@ public:
     // uuid example: "uuid:00000000-0000-0000-0000-000000000000"
     // scope example: "upnp:rootdevice", "urn:schemas-upnp-org:device", "urn:schemas-upnp-org:service"
     // name example: "MediaRenderer:1", "ConnectionManager:1"
-    SSDPService(const std::string uuid, const std::string& scope,
-                const std::string& name, const std::string& location);
+    // location example: ":9958/description.xml"
+    // ipList example: ["192.168.3.224", "*.*.*.*"]
+    SSDPService(const std::string& uuid, const std::string& scope,
+                const std::string& name, const std::string& location,
+                const std::string& ip);
 
-    std::string getST() const {
-        if (scope.empty() && name.empty()) return uuid;
-        if (name.empty()) return scope;
-        return scope + ":" + name;
-    }
+    [[nodiscard]] std::string getST() const;
 
-    std::string getUSN() const {
-        if (scope.empty()) return uuid;
-        if (name.empty()) return uuid + "::" + scope;
-        return uuid + "::" + scope + ":" + name;
-    }
+    [[nodiscard]] std::string getUSN() const;
 
-    std::string uuid, scope, name;
-    std::string location, serverName = "System/1.0 UPnP/1.0 libpdr/1.0",
-                          cacheControl = "max-age=1800";
+    [[nodiscard]] std::string getBroadcastAddr() const;
+
+    std::string ip, uuid, scope, name, location,
+        serverName   = "System/1.0 UPnP/1.0 libpdr/1.0",
+        cacheControl = "max-age=1800";
 };
 
 typedef std::vector<SSDPService> SSDPServiceList;
@@ -284,21 +281,25 @@ public:
 
     void sendNotify(const std::string& NTS);
 
+    void setIP(const std::string& ip);
+
     ~SSDP();
 
 protected:
     std::thread ssdpThread;
-    bool running = false;
+    bool running       = false;
+    bool sendBroadcast = false;
     SSDPServiceMap services;
     struct mg_connection* connection = nullptr;  // listen on: 0.0.0.0:1900
     struct mg_connection* notifyConnection = nullptr;
+    std::string ip;
 };
 
 /// DLNA
 
 class DLNA {
 public:
-    DLNA(const std::string ip, size_t port = 9958,
+    DLNA(const std::string& ip, size_t port = 9958,
          const std::string& uuid = "");
 
     void setDeviceInfo(const std::string& key, const std::string& value);
