@@ -7,7 +7,7 @@ option(BUILD_PDR_EXAMPLE "build pdr example" OFF)
 
 include(FetchContent)
 FetchContent_Declare(mongoose GIT_REPOSITORY https://github.com/cesanta/mongoose.git
-        GIT_TAG 5c8e05a4fc34c5309ceea887a7e60b895b2100d7) # 7.11
+        GIT_TAG 52997c6c5170050148d23436d2ed398811f48c30) # 7.13
 FetchContent_MakeAvailable(mongoose)
 
 FetchContent_Declare(tinyxml2 GIT_REPOSITORY https://github.com/leethomason/tinyxml2.git

@@ -232,9 +232,10 @@ protected:
     std::thread runningThread;
     bool running = false;
     pdr::RendererDevice device;
+    struct mg_mgr* mgr = nullptr;
+    struct mg_connection* connection = nullptr;
 
-    static void fn(struct mg_connection* c, int ev, void* ev_data,
-                   void* fn_data);
+    static void fn(struct mg_connection* c, int ev, void* ev_data);
 };
 
 /// SSDP
@@ -268,8 +269,7 @@ typedef std::unordered_map<std::string, SSDPService> SSDPServiceMap;
 
 class SSDP {
 public:
-    static void fn(struct mg_connection* c, int ev, void* ev_data,
-                   void* fn_data);
+    static void fn(struct mg_connection* c, int ev, void* ev_data);
 
     void registerServices(const SSDPServiceList& service);
 
@@ -290,6 +290,7 @@ protected:
     bool running       = false;
     bool sendBroadcast = false;
     SSDPServiceMap services;
+    struct mg_mgr* mgr = nullptr;
     struct mg_connection* connection = nullptr;  // listen on: 0.0.0.0:1900
     struct mg_connection* notifyConnection = nullptr;
     std::string ip;

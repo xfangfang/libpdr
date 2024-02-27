@@ -39,10 +39,9 @@ std::string SSDPService::getBroadcastAddr() const {
     return ip2broadcastAddr(ip);
 }
 
-void SSDP::fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
-    MG_DEBUG(("%p got event: %d %p %p", c, ev, ev_data, fn_data));
-
-    auto ssdp = static_cast<SSDP *>(fn_data);
+void SSDP::fn(struct mg_connection *c, int ev, void *ev_data) {
+    MG_DEBUG(("%p got event: %d %p %p", c, ev, ev_data, c->fn_data));
+    auto ssdp = static_cast<SSDP *>(c->fn_data);
 
     if (ev == MG_EV_READ) {
         struct mg_http_message hm {};
@@ -135,13 +134,14 @@ SSDPServiceMap &SSDP::getServices() { return services; }
 void SSDP::start(const std::string &url) {
     running    = true;
     ssdpThread = std::thread([this, url]() {
-        struct mg_mgr mgr {};
         bool server_socket_multicast = true, notify_socket_multicast = true;
-        mg_mgr_init(&mgr);
-        connection = mg_listen(&mgr, url.c_str(), fn, this);
+        mgr = new struct mg_mgr;
+        mg_mgr_init(mgr);
+        mg_wakeup_init(mgr);
+        connection = mg_listen(mgr, url.c_str(), fn, this);
 
         if (!connection) {
-            mg_mgr_free(&mgr);
+            mg_mgr_free(mgr);
             DLNA_ERROR("SSDP: Cannot listen to: " + url);
             return;
         }
@@ -158,7 +158,7 @@ void SSDP::start(const std::string &url) {
         }
 
         notifyConnection =
-            mg_connect(&mgr, "udp://239.255.255.250:1900", nullptr, nullptr);
+            mg_connect(mgr, "udp://239.255.255.250:1900", nullptr, nullptr);
         if (setsockopt(FD(notifyConnection), IPPROTO_IP, IP_ADD_MEMBERSHIP,
                        reinterpret_cast<const char *>(&mreq),
                        sizeof(mreq)) < 0) {
@@ -170,22 +170,22 @@ void SSDP::start(const std::string &url) {
         // todo: 在使用 arm macOS 开热点时，热点下的设备无法接收到SSDP组播，这个时候也可以同时使用广播
         if (!notify_socket_multicast) {
             std::string addr = "udp://" + ip2broadcastAddr(ip) + ":1900";
-            notifyConnection = mg_connect(&mgr, addr.c_str(), nullptr, nullptr);
+            notifyConnection = mg_connect(mgr, addr.c_str(), nullptr, nullptr);
             int broadcastEnable = 1;
             if (setsockopt(FD(notifyConnection), SOL_SOCKET, SO_BROADCAST,
                            reinterpret_cast<const char *>(&broadcastEnable),
                            sizeof(broadcastEnable)) < 0) {
                 DLNA_ERROR("SSDP: socket cannot broadcast");
-                mg_mgr_free(&mgr);
+                mg_mgr_free(mgr);
                 return;
             }
             sendBroadcast = true;
         }
 
         // 定时发布服务
-        mg_timer_add(&mgr, 3000, MG_TIMER_REPEAT | MG_TIMER_RUN_NOW, tfn, this);
+        mg_timer_add(mgr, 3000, MG_TIMER_REPEAT | MG_TIMER_RUN_NOW, tfn, this);
 
-        while (running) mg_mgr_poll(&mgr, 200);
+        while (running) mg_mgr_poll(mgr, 2000);
         sendNotify("ssdp:byebye");
 
         // 移除组播
@@ -196,14 +196,19 @@ void SSDP::start(const std::string &url) {
             setsockopt(FD(notifyConnection), IPPROTO_IP, IP_DROP_MEMBERSHIP,
                        (char *)&mreq, sizeof(mreq));
 
-        mg_mgr_free(&mgr);
+        mg_mgr_free(mgr);
+        delete mgr;
+        mgr              = nullptr;
         connection       = nullptr;
         notifyConnection = nullptr;
     });
 }
 
 void SSDP::stop(bool wait) {
+    if (!running) return;
     running = false;
+    if (mgr && connection)
+        mg_wakeup(mgr, connection->id, nullptr, 0);
     if (wait && ssdpThread.joinable()) {
         ssdpThread.join();
     }

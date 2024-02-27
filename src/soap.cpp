@@ -199,8 +199,8 @@ inline void parsePostAction(mg_http_message* hm, std::string& service,
     }
 }
 
-void SOAP::fn(struct mg_connection* c, int ev, void* ev_data, void* fn_data) {
-    auto soap = static_cast<SOAP*>(fn_data);
+void SOAP::fn(struct mg_connection* c, int ev, void* ev_data) {
+    auto soap = static_cast<SOAP*>(c->fn_data);
     if (ev == MG_EV_HTTP_MSG) {
         auto hm = static_cast<mg_http_message*>(ev_data);
         MG_INFO(("Got a HTTP request"));
@@ -245,21 +245,28 @@ void SOAP::fn(struct mg_connection* c, int ev, void* ev_data, void* fn_data) {
 void SOAP::start(const std::string& url) {
     running       = true;
     runningThread = std::thread([this, url]() {
-        struct mg_mgr mgr {};
-        mg_mgr_init(&mgr);
-        auto c = mg_http_listen(&mgr, url.c_str(), fn, this);
-        if (!c) {
+        mgr = new struct mg_mgr;
+        mg_mgr_init(mgr);
+        mg_wakeup_init(mgr);
+        connection = mg_http_listen(mgr, url.c_str(), fn, this);
+        if (!connection) {
             DLNA_ERROR("SOAP: Cannot listen to: " + url);
-            mg_mgr_free(&mgr);
+            mg_mgr_free(mgr);
             return;
         }
-        while (running) mg_mgr_poll(&mgr, 200);
-        mg_mgr_free(&mgr);
+        while (running) mg_mgr_poll(mgr, 2000);
+        mg_mgr_free(mgr);
+        delete mgr;
+        mgr        = nullptr;
+        connection = nullptr;
     });
 }
 
 void SOAP::stop(bool wait) {
+    if (!running) return;
     running = false;
+    if (mgr && connection)
+        mg_wakeup(mgr, connection->id, nullptr, 0);
     if (wait && runningThread.joinable()) {
         runningThread.join();
     }
