@@ -67,29 +67,37 @@ void SSDP::fn(struct mg_connection *c, int ev, void *ev_data) {
         printf("\n");
 
         if (headers.count("ST") == 0) return;
-        for (auto &service : ssdp->getServices()) {
-            if (service.second.getST() == headers["ST"] ||
-                headers["ST"] == "ssdp:all") {
-                mg_printf(c,
-                          "HTTP/1.1 200 OK\r\n"
-                          "USN: %s\r\n"
-                          "ST: %s\r\n"
-                          "LOCATION: %s\r\n"
-                          "EXT:\r\n"
-                          "SERVER: %s\r\n"
-                          "CACHE-CONTROL: %s\r\n"
-                          "DATE: %s\r\n"
-                          "\r\n",
-                          service.second.getUSN().c_str(),
-                          service.second.getST().c_str(),
-                          service.second.location.c_str(),
-                          service.second.serverName.c_str(),
-                          service.second.cacheControl.c_str(),
-                          gmtTime().c_str());
-                break;
-            }
-        }
+        ssdp->sendReply(headers["ST"], c->rem);
     }
+}
+
+void SSDP::sendReply(const std::string& ST, const struct mg_addr &addr) {
+    char buf[512];
+    snprintf(buf, sizeof(buf), "udp://%d.%d.%d.%d:%d", addr.ip[0], addr.ip[1],
+             addr.ip[2], addr.ip[3], mg_ntohs(addr.port));
+    auto *reply = mg_connect(mgr, buf, nullptr, nullptr);
+    if (!reply) return;
+    for (auto &service : getServices()) {
+        if (ST != "ssdp:all" && service.second.getST() != ST) continue;
+        snprintf(buf, sizeof(buf),
+                 "HTTP/1.1 200 OK\r\n"
+                 "USN: %s\r\n"
+                 "ST: %s\r\n"
+                 "LOCATION: %s\r\n"
+                 "EXT:\r\n"
+                 "SERVER: %s\r\n"
+                 "CACHE-CONTROL: %s\r\n"
+                 "DATE: %s\r\n"
+                 "\r\n",
+                 service.second.getUSN().c_str(),
+                 service.second.getST().c_str(),
+                 service.second.location.c_str(),
+                 service.second.serverName.c_str(),
+                 service.second.cacheControl.c_str(),
+                 gmtTime().c_str());
+        mg_send(reply, buf, strlen(buf));
+    }
+    mg_close_conn(reply);
 }
 
 static void tfn(void *param) {

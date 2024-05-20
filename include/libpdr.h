@@ -281,6 +281,8 @@ public:
 
     void sendNotify(const std::string& NTS);
 
+    void sendReply(const std::string& ST, const struct mg_addr& addr);
+
     void setIP(const std::string& ip);
 
     ~SSDP();
