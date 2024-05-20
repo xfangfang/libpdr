@@ -187,9 +187,10 @@ std::string RendererServiceAVTransport::SetAVTransportURI(ACTION_PARAMS) {
 
     // title
     GET_VAR(CurrentURIMetaData, "CurrentURIMetaData");
+    const char* text = CurrentURIMetaData->GetText();
     ((RendererServiceAVTransport*)self)
         ->stateTable["CurrentTrackMetaData"]
-        .value = CurrentURIMetaData->GetText();
+        .value = text ? CurrentURIMetaData->GetText(): "";
     tinyxml2::XMLDocument metaData;
     metaData.Parse(CurrentURIMetaData->GetText());
     if (!metaData.Error()) {
