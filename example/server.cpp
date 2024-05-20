@@ -20,7 +20,15 @@ bool getIPAndPort(std::string& ip, int& port) {
     return true;
 }
 
+static void signal_handler(int sig_num) {
+    signal(sig_num, signal_handler);
+    exit(sig_num);
+}
+
 int main() {
+    signal(SIGPIPE, SIG_IGN);
+    signal(SIGINT, signal_handler);
+    signal(SIGTERM, signal_handler);
     std::cout << "welcome to libpdr example: server" << std::endl;
     std::string command, ip;
     int port;

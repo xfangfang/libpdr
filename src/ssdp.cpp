@@ -60,9 +60,9 @@ void SSDP::fn(struct mg_connection *c, int ev, void *ev_data) {
         // Iterate over request headers
         for (i = 0; i < max && hm.headers[i].name.len > 0; i++) {
             struct mg_str *k = &hm.headers[i].name, *v = &hm.headers[i].value;
-            headers[std::string{k->ptr, k->len}] = std::string{v->ptr, v->len};
-            printf("\t%.*s -> %.*s\n", (int)k->len, k->ptr, (int)v->len,
-                   v->ptr);
+            headers[std::string{k->buf, k->len}] = std::string{v->buf, v->len};
+            printf("\t%.*s -> %.*s\n", (int)k->len, k->buf, (int)v->len,
+                   v->buf);
         }
         printf("\n");
 

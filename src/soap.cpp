@@ -166,9 +166,9 @@ static void printHeader(mg_http_message* hm) {
     size_t i, max = sizeof(hm->headers) / sizeof(hm->headers[0]);
     for (i = 0; i < max && hm->headers[i].name.len > 0; i++) {
         struct mg_str *k = &hm->headers[i].name, *v = &hm->headers[i].value;
-        printf("\t%.*s -> %.*s\n", (int)k->len, k->ptr, (int)v->len, v->ptr);
+        printf("\t%.*s -> %.*s\n", (int)k->len, k->buf, (int)v->len, v->buf);
     }
-    printf("\n\t%.*s\n", (int)hm->body.len, hm->body.ptr);
+    printf("\n\t%.*s\n", (int)hm->body.len, hm->body.buf);
 }
 
 inline void parsePostAction(mg_http_message* hm, std::string& service,
@@ -176,20 +176,20 @@ inline void parsePostAction(mg_http_message* hm, std::string& service,
     size_t i, max = sizeof(hm->headers) / sizeof(hm->headers[0]);
     for (i = 0; i < max && hm->headers[i].name.len > 0; i++) {
         struct mg_str *k = &hm->headers[i].name, *v = &hm->headers[i].value;
-        if (mg_vcasecmp(k, "SOAPACTION") == 0) {
+        if (mg_strcasecmp(*k, mg_str("SOAPACTION")) == 0) {
             // v: "urn:schemas-upnp-org:service:AVTransport:1#SetAVTransportURI"
             size_t count = 0, last = 0;
             for (size_t index = 0; index < v->len; index++) {
-                if (v->ptr[index] == '#' && index + 1 < v->len) {
+                if (v->buf[index] == '#' && index + 1 < v->len) {
                     action =
-                        std::string{v->ptr + index + 1, v->len - index - 2};
+                        std::string{v->buf + index + 1, v->len - index - 2};
                     break;
                 }
-                if (v->ptr[index] == ':') {
+                if (v->buf[index] == ':') {
                     count++;
                     if (count == 4) {
                         service =
-                            std::string{v->ptr + last + 1, index - last - 1};
+                            std::string{v->buf + last + 1, index - last - 1};
                     }
                     last = index;
                 }
@@ -204,32 +204,32 @@ void SOAP::fn(struct mg_connection* c, int ev, void* ev_data) {
     if (ev == MG_EV_HTTP_MSG) {
         auto hm = static_cast<mg_http_message*>(ev_data);
         MG_INFO(("Got a HTTP request"));
-        printf("Method %.*s: %.*s\n", (int)hm->method.len, hm->method.ptr,
-               (int)hm->uri.len, hm->uri.ptr);
+        printf("Method %.*s: %.*s\n", (int)hm->method.len, hm->method.buf,
+               (int)hm->uri.len, hm->uri.buf);
         printClientIP(c);
         printHeader(hm);
-        if (mg_vcasecmp(&hm->method, "GET") == 0) {
-            if (mg_strcmp(hm->uri, MG_C_STR("/")) == 0) {
+        if (mg_strcasecmp(hm->method, mg_str("GET")) == 0) {
+            if (mg_strcmp(hm->uri, mg_str("/")) == 0) {
                 return mg_http_reply(c, 200, "", "Portable DLNA Renderer");
-            } else if (mg_strcmp(hm->uri, MG_C_STR("/description.xml")) == 0) {
+            } else if (mg_strcmp(hm->uri, mg_str("/description.xml")) == 0) {
                 return mg_http_reply(c, 200, xmlHeader().c_str(),
                                      soap->device.getString().c_str());
             } else {
                 for (auto& service : soap->device.getServiceList()) {
                     std::string link = "/" + service.first + ".xml";
-                    if (mg_vcmp(&hm->uri, link.c_str()) == 0) {
+                    if (mg_strcmp(hm->uri, mg_str(link.c_str())) == 0) {
                         return mg_http_reply(
                             c, 200, xmlHeader().c_str(),
                             soap->device.getString(service.first).c_str());
                     }
                 }
             }
-        } else if (mg_vcasecmp(&hm->method, "POST") == 0) {
+        } else if (mg_strcasecmp(hm->method, mg_str("POST")) == 0) {
             try {
                 std::string service, action;
                 parsePostAction(hm, service, action);
                 auto res = soap->device.parseRequest(
-                    service, action, std::string{hm->body.ptr, hm->body.len});
+                    service, action, std::string{hm->body.buf, hm->body.len});
                 if (!res.empty()) {
                     return mg_http_reply(c, 200, xmlHeader().c_str(),
                                          res.c_str());
