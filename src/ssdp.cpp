@@ -10,7 +10,7 @@
 namespace pdr {
 
 static inline std::string ip2broadcastAddr(const std::string &ip) {
-    if (ip.empty()) return SSDP_MULTICAST_ADDR;
+    if (ip.empty() || ip == "-") return SSDP_MULTICAST_ADDR;
     size_t lastDotPos = ip.find_last_of('.');
     if (lastDotPos != std::string::npos) {
         return ip.substr(0, lastDotPos + 1) + "255";
@@ -142,27 +142,31 @@ SSDPServiceMap &SSDP::getServices() { return services; }
 void SSDP::start(const std::string &url) {
     running    = true;
     ssdpThread = std::thread([this, url]() {
-        bool server_socket_multicast = true, notify_socket_multicast = true;
+        bool server_socket_multicast = false, notify_socket_multicast = true;
         mgr = new struct mg_mgr;
         mg_mgr_init(mgr);
         mg_wakeup_init(mgr);
         connection = mg_listen(mgr, url.c_str(), fn, this);
 
-        if (!connection) {
-            mg_mgr_free(mgr);
-            DLNA_ERROR("SSDP: Cannot listen to: " + url);
-            return;
-        }
-
-        // 加入 SSDP 组播
         struct ip_mreq mreq {};
         mreq.imr_multiaddr.s_addr = inet_addr(SSDP_MULTICAST_ADDR);
-        mreq.imr_interface.s_addr = htonl(INADDR_ANY);
-        if (setsockopt(FD(connection), IPPROTO_IP, IP_ADD_MEMBERSHIP,
-                       reinterpret_cast<const char *>(&mreq),
-                       sizeof(mreq)) < 0) {
-            MG_ERROR(("SSDP: server socket cannot join to multicast group"));
-            server_socket_multicast = false;
+        if (!ip.empty() && ip != "-") {
+            mreq.imr_interface.s_addr = inet_addr(ip.c_str());
+        } else {
+            mreq.imr_interface.s_addr = htonl(INADDR_ANY);
+        }
+
+        if (!connection) {
+            MG_INFO(("SSDP: Cannot listen to: %s (errno: %d), using active announcement mode", url.c_str(), errno));
+        } else {
+            // 加入 SSDP 组播
+            if (setsockopt(FD(connection), IPPROTO_IP, IP_ADD_MEMBERSHIP,
+                           reinterpret_cast<const char *>(&mreq),
+                           sizeof(mreq)) < 0) {
+                MG_ERROR(("SSDP: server socket cannot join to multicast group"));
+            } else {
+                server_socket_multicast = true;
+            }
         }
 
         notifyConnection =
@@ -190,17 +194,17 @@ void SSDP::start(const std::string &url) {
             sendBroadcast = true;
         }
 
-        // 定时发布服务
-        mg_timer_add(mgr, 3000, MG_TIMER_REPEAT | MG_TIMER_RUN_NOW, tfn, this);
+        // 定时发布服务 (每 2 秒广播一次，提高客户端发现速度)
+        mg_timer_add(mgr, 2000, MG_TIMER_REPEAT | MG_TIMER_RUN_NOW, tfn, this);
 
         while (running) mg_mgr_poll(mgr, 2000);
         sendNotify("ssdp:byebye");
 
         // 移除组播
-        if (server_socket_multicast)
+        if (connection && server_socket_multicast)
             setsockopt(FD(connection), IPPROTO_IP, IP_DROP_MEMBERSHIP,
                        (char *)&mreq, sizeof(mreq));
-        if (notify_socket_multicast)
+        if (notifyConnection && notify_socket_multicast)
             setsockopt(FD(notifyConnection), IPPROTO_IP, IP_DROP_MEMBERSHIP,
                        (char *)&mreq, sizeof(mreq));
 

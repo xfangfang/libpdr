@@ -220,11 +220,17 @@ class SOAP {
 public:
     SOAP() = default;
 
-    void start(const std::string& url = "http://0.0.0.0:8000");
+    void start(const std::string& url = "http://0.0.0.0:8000",
+               const std::string& fallbackUrl = "");
 
     void stop(bool wait);
 
     RendererDevice& getDevice();
+
+    /// Returns the TCP port actually bound by mongoose after start().
+    /// Blocks up to timeoutMs milliseconds waiting for the bind to complete.
+    /// Returns 0 on timeout or failure.
+    int getActualPort(int timeoutMs = 3000);
 
     ~SOAP();
 
@@ -234,6 +240,9 @@ protected:
     pdr::RendererDevice device;
     struct mg_mgr* mgr = nullptr;
     struct mg_connection* connection = nullptr;
+
+    // Set by the background thread once bind() has completed.
+    std::atomic<int> boundPort_{0};
 
     static void fn(struct mg_connection* c, int ev, void* ev_data);
 };
@@ -312,6 +321,7 @@ public:
     void stop(bool wait = true);
 
 protected:
+    std::string ip;
     std::string uuid;
     size_t port;
     pdr::SSDP ssdp;

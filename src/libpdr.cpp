@@ -8,7 +8,7 @@
 namespace pdr {
 
 DLNA::DLNA(const std::string& ip, size_t port, const std::string& uuid)
-    : uuid(uuid), port(port) {
+    : ip(ip), uuid(uuid), port(port) {
     SSDPServiceList services;
 
     char temp[100];
@@ -36,12 +36,46 @@ void DLNA::setDeviceInfo(const std::string& key, const std::string& value) {
 }
 
 void DLNA::start() {
-    char url[30];
-    snprintf(url, sizeof(url), "http://0.0.0.0:%d", (int)port);
-    soap.start(url);
+    // On PS5 the sandbox blocks any explicit-port TCP bind (EACCES).
+    // Pass port=0 so mongoose calls bind(0) and the kernel assigns an
+    // allowed ephemeral port; we then read it back via getActualPort().
+#if defined(PS5) || defined(__PS5__)
+    std::string primaryUrl = "http://0.0.0.0:0";
+#else
+    std::string primaryUrl = "http://0.0.0.0:" + std::to_string(port);
+#endif
+    std::string fallbackUrl;
+    if (!ip.empty() && ip != "-") {
+        fallbackUrl = "http://" + ip + ":" + std::to_string(port);
+    }
+    soap.start(primaryUrl, fallbackUrl);
+
+#if defined(PS5) || defined(__PS5__)
+    // Wait for SOAP's background thread to complete bind() and learn the port.
+    int actualPort = soap.getActualPort(3000);
+    if (actualPort > 0 && actualPort != (int)port) {
+        port = actualPort;
+        // Re-register SSDP services with the real port so the LOCATION header
+        // in ssdp:alive / M-SEARCH replies points to the correct HTTP endpoint.
+        char temp[100];
+        snprintf(temp, sizeof(temp), "http://%s:%d/description.xml",
+                 ip.c_str(), actualPort);
+        std::string location{temp};
+        ssdp.registerServices({
+            {uuid, "upnp:rootdevice", "", location, ip},
+            {uuid, "", "", location, ip},
+            {uuid, "urn:schemas-upnp-org:device", "MediaRenderer:1", location, ip},
+            {uuid, "urn:schemas-upnp-org:service", "AVTransport:1", location, ip},
+            {uuid, "urn:schemas-upnp-org:service", "RenderingControl:1", location, ip},
+            {uuid, "urn:schemas-upnp-org:service", "ConnectionManager:1", location, ip},
+        });
+    }
+#endif
+
     ssdp.start();
     running = true;
 }
+
 
 void DLNA::stop(bool wait) {
     soap.stop(wait);

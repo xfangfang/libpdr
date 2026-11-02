@@ -1,4 +1,6 @@
 
+#include <chrono>
+#include <thread>
 #include <mongoose.h>
 
 #include "libpdr.h"
@@ -243,18 +245,28 @@ void SOAP::fn(struct mg_connection* c, int ev, void* ev_data) {
     }
 }
 
-void SOAP::start(const std::string& url) {
+void SOAP::start(const std::string& url, const std::string& fallbackUrl) {
+    boundPort_.store(0);
     running       = true;
-    runningThread = std::thread([this, url]() {
+    runningThread = std::thread([this, url, fallbackUrl]() {
         mgr = new struct mg_mgr;
         mg_mgr_init(mgr);
         mg_wakeup_init(mgr);
         connection = mg_http_listen(mgr, url.c_str(), fn, this);
+        if (!connection && !fallbackUrl.empty()) {
+            MG_INFO(("SOAP: Failed to listen on %s, trying fallback %s", url.c_str(), fallbackUrl.c_str()));
+            connection = mg_http_listen(mgr, fallbackUrl.c_str(), fn, this);
+        }
         if (!connection) {
             DLNA_ERROR("SOAP: Cannot listen to: " + url);
+            boundPort_.store(-1);  // signal failure
             mg_mgr_free(mgr);
             return;
         }
+        // connection->loc.port is in network byte order; mg_ntohs converts it.
+        int actualPort = (int)mg_ntohs(connection->loc.port);
+        MG_INFO(("SOAP: listening on port %d", actualPort));
+        boundPort_.store(actualPort);  // signal success with actual port
         while (running) mg_mgr_poll(mgr, 2000);
         mg_mgr_free(mgr);
         delete mgr;
@@ -262,6 +274,20 @@ void SOAP::start(const std::string& url) {
         connection = nullptr;
     });
 }
+
+int SOAP::getActualPort(int timeoutMs) {
+    // Spin-wait for the background thread to complete bind().
+    // bind() is the very first thing the thread does, so this resolves quickly.
+    int elapsed = 0;
+    while (elapsed < timeoutMs) {
+        int p = boundPort_.load();
+        if (p != 0) return (p < 0) ? 0 : p;
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        elapsed += 10;
+    }
+    return 0;
+}
+
 
 void SOAP::stop(bool wait) {
     if (!running) return;
